@@ -1,22 +1,23 @@
 /**
- * useChatbot - AI 챗봇 Spring Boot API 연동 훅
+ * useChatbot - AI 챗봇 Spring Boot REST API 연동 훅
  *
  * 원본: ChatbotModal.tsx 로컬 상태 + setTimeout(600ms)
  *
  * Spring Boot 전환:
- *   - 초기 환영 메시지: GET /api/chat/welcome
- *   - 메시지 전송/응답: POST /api/chat/send
+ *   - POST /api/chat/send → AI 응답 반환
+ *   - Spring Boot 없이 standalone 실행 시 로컬 fallback (600ms 지연, 원본 동작 유지)
  */
 import { useState } from "react";
 import axios from "axios";
 
-interface Message {
+export interface ChatMessageItem {
   id: number;
   sender: "ai" | "user";
   text: string;
   timestamp: Date;
 }
 
+// 원본 ChatbotModal.tsx AI_RESPONSES 배열 그대로 유지
 const AI_RESPONSES_FALLBACK = [
   "현재 KIA의 응원 화력이 매우 높습니다! 1루 응원석에 집중하면 더 큰 효과를 볼 수 있습니다.",
   "LG의 퀴즈 정답률이 92%로 상승했습니다. 우외야 구역에서 역습 기회가 있습니다!",
@@ -27,7 +28,7 @@ const AI_RESPONSES_FALLBACK = [
 ];
 
 export function useChatbot() {
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<ChatMessageItem[]>([
     {
       id: 1,
       sender: "ai",
@@ -40,8 +41,8 @@ export function useChatbot() {
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const userMsg: Message = {
-      id: messages.length + 1,
+    const userMsg: ChatMessageItem = {
+      id: Date.now(),
       sender: "user",
       text: input,
       timestamp: new Date(),
@@ -51,9 +52,14 @@ export function useChatbot() {
     setInput("");
 
     try {
-      const response = await axios.post("/api/chat/send", { text: sentText });
+      // Spring Boot REST API 호출
+      const response = await axios.post<{ id: number; sender: string; text: string; timestamp: string }>(
+        "/api/chat/send",
+        { text: sentText },
+        { timeout: 3000 }
+      );
       const data = response.data;
-      const aiMsg: Message = {
+      const aiMsg: ChatMessageItem = {
         id: data.id,
         sender: "ai",
         text: data.text,
@@ -61,12 +67,11 @@ export function useChatbot() {
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch {
+      // API 없는 경우 로컬 폴백 (원본 600ms 지연)
       setTimeout(() => {
         const aiText =
-          AI_RESPONSES_FALLBACK[
-            Math.floor(Math.random() * AI_RESPONSES_FALLBACK.length)
-          ];
-        const aiMsg: Message = {
+          AI_RESPONSES_FALLBACK[Math.floor(Math.random() * AI_RESPONSES_FALLBACK.length)];
+        const aiMsg: ChatMessageItem = {
           id: Date.now(),
           sender: "ai",
           text: aiText,

@@ -1,5 +1,5 @@
 /**
- * useGameState - Spring Boot WebSocket 연동 훅
+ * useGameState - Spring Boot WebSocket/REST API 연동 훅
  *
  * 원본: Home.tsx의 React 로컬 상태 + setInterval
  *   - kiaScore, lgScore: useState + setInterval(2s)
@@ -10,11 +10,12 @@
  *   - 초기 데이터: GET /api/game/state, GET /api/game/ticker
  *   - 실시간 업데이트: STOMP WebSocket /topic/gamestate, /topic/ticker
  *   - SockJS 폴백 지원
+ *   - Spring Boot 없이 standalone 실행 시 로컬 fallback 동작
  */
 import { useEffect, useState } from "react";
 import axios from "axios";
 
-interface Zone {
+export interface Zone {
   id: number;
   owner: "kia" | "lg" | "neutral";
   occupationRate: number;
@@ -26,7 +27,7 @@ interface GameState {
   lgScore: number;
 }
 
-interface TickerMessage {
+export interface TickerMessage {
   team: string;
   msg: string;
 }
@@ -54,57 +55,16 @@ export function useGameState() {
   const [ticker, setTicker] = useState<TickerMessage>(TICKER_MESSAGES[0]);
 
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let wsClient: any = null;
-
-    // 초기 데이터 로드 (REST API)
-    const loadInitial = async () => {
-      try {
-        const [stateRes, tickerRes] = await Promise.all([
-          axios.get<GameState>("/api/game/state"),
-          axios.get<TickerMessage>("/api/game/ticker"),
-        ]);
-        const s = stateRes.data;
-        setZones(s.zones);
-        setKiaScore(s.kiaScore);
-        setLgScore(s.lgScore);
-        setTicker(tickerRes.data);
-      } catch {
-        // API 없는 경우(개발 standalone 모드) 로컬 fallback
-        startLocalFallback();
-      }
-    };
-
-    // WebSocket 연결 (SockJS + STOMP)
-    const connectWebSocket = async () => {
-      try {
-        const SockJS = (await import("sockjs-client")).default;
-        const Stomp = (await import("stompjs")).default;
-
-        const socket = new SockJS("/ws");
-        wsClient = Stomp.over(socket);
-        wsClient.debug = null; // 로그 비활성화
-
-        wsClient.connect({}, () => {
-          wsClient.subscribe("/topic/gamestate", (msg: any) => {
-            const data: GameState = JSON.parse(msg.body);
-            setZones(data.zones);
-            setKiaScore(data.kiaScore);
-            setLgScore(data.lgScore);
-          });
-          wsClient.subscribe("/topic/ticker", (msg: any) => {
-            const data: TickerMessage = JSON.parse(msg.body);
-            setTicker(data);
-          });
-        });
-      } catch {
-        // WebSocket 불가 시 로컬 폴백
-      }
-    };
+    const localIntervals: ReturnType<typeof setInterval>[] = [];
+    let isMounted = true;
 
     // 로컬 폴백 (Spring Boot 없이 standalone 실행 시)
-    let localIntervals: ReturnType<typeof setInterval>[] = [];
+    // 원본 Home.tsx setInterval 동작과 동일
     const startLocalFallback = () => {
       const scoreInterval = setInterval(() => {
+        if (!isMounted) return;
         setKiaScore((s) => s + Math.floor(Math.random() * 5));
         setLgScore((s) => s + Math.floor(Math.random() * 4));
         setZones((prev) =>
@@ -120,19 +80,79 @@ export function useGameState() {
 
       let tIdx = 0;
       const tickerInterval = setInterval(() => {
+        if (!isMounted) return;
         tIdx = (tIdx + 1) % TICKER_MESSAGES.length;
         setTicker(TICKER_MESSAGES[tIdx]);
       }, 4000);
 
-      localIntervals = [scoreInterval, tickerInterval];
+      localIntervals.push(scoreInterval, tickerInterval);
+    };
+
+    // 초기 데이터 로드 (REST API)
+    const loadInitial = async () => {
+      try {
+        const [stateRes, tickerRes] = await Promise.all([
+          axios.get<GameState>("/api/game/state", { timeout: 2000 }),
+          axios.get<TickerMessage>("/api/game/ticker", { timeout: 2000 }),
+        ]);
+        if (!isMounted) return;
+        const s = stateRes.data;
+        setZones(s.zones);
+        setKiaScore(s.kiaScore);
+        setLgScore(s.lgScore);
+        setTicker(tickerRes.data);
+      } catch {
+        // API 없는 경우 로컬 fallback
+        if (isMounted) startLocalFallback();
+      }
+    };
+
+    // WebSocket 연결 (SockJS + STOMP)
+    const connectWebSocket = async () => {
+      try {
+        const SockJSModule = await import("sockjs-client");
+        const StompModule = await import("stompjs");
+        const SockJS = SockJSModule.default;
+        const Stomp = StompModule.default;
+
+        const socket = new SockJS("/ws");
+        wsClient = Stomp.over(socket);
+        // 로그 비활성화
+        wsClient.debug = () => {};
+
+        wsClient.connect({}, () => {
+          if (!isMounted) return;
+
+          wsClient.subscribe("/topic/gamestate", (msg: { body: string }) => {
+            if (!isMounted) return;
+            const data: GameState = JSON.parse(msg.body);
+            setZones(data.zones);
+            setKiaScore(data.kiaScore);
+            setLgScore(data.lgScore);
+          });
+
+          wsClient.subscribe("/topic/ticker", (msg: { body: string }) => {
+            if (!isMounted) return;
+            const data: TickerMessage = JSON.parse(msg.body);
+            setTicker(data);
+          });
+        }, () => {
+          // WebSocket 연결 실패 시 fallback
+          if (isMounted) startLocalFallback();
+        });
+      } catch {
+        // WebSocket 라이브러리 로드 실패 시 fallback
+        if (isMounted) startLocalFallback();
+      }
     };
 
     loadInitial();
     connectWebSocket();
 
     return () => {
+      isMounted = false;
       if (wsClient) {
-        try { wsClient.disconnect(); } catch {}
+        try { wsClient.disconnect(); } catch { /* ignore */ }
       }
       localIntervals.forEach(clearInterval);
     };

@@ -4,8 +4,8 @@
  * 원본: baseballai-bicevcq9/client/src/components/ChatbotModal.tsx
  * 변경사항:
  *  - 로컬 useState + setTimeout → useChatbot 훅으로 분리
- *  - Spring Boot POST /api/chat/send 연동
- *  - 폴백: API 없을 시 로컬 랜덤 응답 (원본 동작 유지)
+ *  - Spring Boot POST /api/chat/send 연동 (폴백: 로컬 랜덤 응답, 원본 동작 유지)
+ *  - UI/디자인은 원본과 100% 동일
  */
 import { useChatbot } from "@/hooks/useChatbot";
 
@@ -50,7 +50,7 @@ export default function ChatbotModal({ isOpen, onClose }: ChatbotModalProps) {
         }}
       >
         <span style={{ color: "#FFFFFF", fontWeight: 700, fontSize: 13 }}>
-          AI 명령
+          🤖 AI 명령
         </span>
         <button
           onClick={onClose}
@@ -68,14 +68,10 @@ export default function ChatbotModal({ isOpen, onClose }: ChatbotModalProps) {
             justifyContent: "center",
             transition: "color 0.2s ease",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "rgba(255,255,255,0.8)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "rgba(255,255,255,0.5)";
-          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.8)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}
         >
-          X
+          ✕
         </button>
       </div>
 
@@ -161,12 +157,8 @@ export default function ChatbotModal({ isOpen, onClose }: ChatbotModalProps) {
             cursor: "pointer",
             transition: "all 0.2s ease",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(100,150,255,0.95)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "rgba(100,150,255,0.75)";
-          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(100,150,255,0.95)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(100,150,255,0.75)"; }}
         >
           전송
         </button>
