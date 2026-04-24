@@ -31,7 +31,7 @@ export function useChatbot() {
     {
       id: 1,
       sender: "ai",
-      text: "안녕하세요! 🤖 AI 전략 사령관입니다. 현재 경기 상황을 분석하고 최적의 응원 전략을 제안해드립니다.",
+      text: "안녕하세요! AI 전략 사령관입니다. 현재 경기 상황을 분석하고 최적의 응원 전략을 제안해드립니다.",
       timestamp: new Date(),
     },
   ]);
@@ -51,7 +51,6 @@ export function useChatbot() {
     setInput("");
 
     try {
-      // Spring Boot REST API 호출
       const response = await axios.post("/api/chat/send", { text: sentText });
       const data = response.data;
       const aiMsg: Message = {
@@ -62,14 +61,13 @@ export function useChatbot() {
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch {
-      // API 없는 경우 로컬 폴백 (600ms 지연)
       setTimeout(() => {
         const aiText =
           AI_RESPONSES_FALLBACK[
             Math.floor(Math.random() * AI_RESPONSES_FALLBACK.length)
           ];
         const aiMsg: Message = {
-          id: messages.length + 2,
+          id: Date.now(),
           sender: "ai",
           text: aiText,
           timestamp: new Date(),

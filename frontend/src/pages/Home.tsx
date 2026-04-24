@@ -1,28 +1,28 @@
 /*
- * Home.tsx - PLACEBALL: 사용자 관점의 세련된 전문 대시보드
- * 디자인: 초슬림 상단바 + 가독성 중심 글래스모피즘 + 원본 일러스트
+ * Home.tsx - PLACEBALL: Spring Boot WebSocket/REST API 연동 버전
  *
- * Spring Boot 전환:
- *  - 로컬 useState + setInterval → useGameState 훅 (REST API + WebSocket)
- *  - ChatbotModal → useChatbot 훅 (REST API)
+ * 원본: baseballai-bicevcq9/client/src/pages/Home.tsx
+ * 변경사항:
+ *  - useState + setInterval → useGameState 훅으로 분리
+ *    (Spring Boot /api/game/state REST + /topic/gamestate WebSocket)
+ *  - ticker 상태 → useGameState 훅 내부로 이동
+ *  - 챗봇 → useChatbot 훅 (POST /api/chat/send)
+ *  - 나머지 UI/디자인은 원본과 100% 동일
  */
 import { useState, useEffect } from "react";
 import StadiumDiamondMap from "@/components/StadiumDiamondMap";
 import ChatbotModal from "@/components/ChatbotModal";
 import { useGameState } from "@/hooks/useGameState";
 
-// 일러스트 CDN URL (새로운 배경)
 const ILLUSTRATION_URL =
   "https://d2xsxph8kpxj0f.cloudfront.net/310519663555046363/MNHzhWkk75iGVRjusfbvzN/Gemini_Generated_Image_t2t6jzt2t6jzt2t6_5ac76708.png";
 
 export default function Home() {
-  // Spring Boot WebSocket/REST API 연동 훅
   const { zones, kiaScore, lgScore, ticker } = useGameState();
-
   const [chatOpen, setChatOpen] = useState(false);
   const [showHint, setShowHint] = useState(true);
 
-  // 챗봇 말풍선 애니메이션 (원본 유지)
+  // 챗봇 말풍선 애니메이션 (원본 동일)
   useEffect(() => {
     const hintInterval = setInterval(() => {
       setShowHint((prev) => !prev);
@@ -30,14 +30,15 @@ export default function Home() {
     return () => clearInterval(hintInterval);
   }, []);
 
-  const kiaOccupation = zones
-    .filter((z) => z.owner === "kia")
-    .reduce((sum, z) => sum + z.occupationRate, 0) /
+  const kiaOccupation =
+    zones.filter((z) => z.owner === "kia").reduce((sum, z) => sum + z.occupationRate, 0) /
     Math.max(1, zones.filter((z) => z.owner === "kia").length);
-  const lgOccupation = zones
-    .filter((z) => z.owner === "lg")
-    .reduce((sum, z) => sum + z.occupationRate, 0) /
+  const lgOccupation =
+    zones.filter((z) => z.owner === "lg").reduce((sum, z) => sum + z.occupationRate, 0) /
     Math.max(1, zones.filter((z) => z.owner === "lg").length);
+
+  void kiaOccupation;
+  void lgOccupation;
 
   return (
     <div
@@ -53,7 +54,7 @@ export default function Home() {
         overflow: "hidden",
       }}
     >
-      {/* ── 초슬림 상단 헤더 ── */}
+      {/* 초슬림 상단 헤더 */}
       <header
         style={{
           display: "flex",
@@ -164,7 +165,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 우측 직관 다이어리 (Ghost Button) */}
+        {/* 우측 직관 다이어리 버튼 */}
         <button
           style={{
             background: "rgba(0,0,0,0.04)",
@@ -191,7 +192,7 @@ export default function Home() {
         </button>
       </header>
 
-      {/* ── 메인 콘텐츠 ── */}
+      {/* 메인 콘텐츠 */}
       <main
         style={{
           flex: 1,
@@ -204,7 +205,7 @@ export default function Home() {
           justifyItems: "center",
         }}
       >
-        {/* ── 좌측 위젯: KIA 응원 지표 ── */}
+        {/* 좌측 위젯: KIA 응원 지표 */}
         <div
           style={{
             background: "rgba(255,255,255,0.28)",
@@ -224,22 +225,16 @@ export default function Home() {
           <div style={{ fontSize: 10, fontWeight: 600, color: "#1A1A1A", letterSpacing: "0.1em" }}>
             🔴 KIA TIGERS
           </div>
-
-          {/* 수다글 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <div style={{ fontSize: 10, fontWeight: 500, color: "#1A1A1A" }}>💬 수다글</div>
             <div style={{ fontSize: 42, fontWeight: 900, color: "#FFFFFF", lineHeight: 1 }}>2,847</div>
             <div style={{ fontSize: 9, fontWeight: 400, color: "rgba(255,255,255,0.45)" }}>평균 업로드</div>
           </div>
-
-          {/* 인증샷 속도 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <div style={{ fontSize: 10, fontWeight: 500, color: "#1A1A1A" }}>📸 인증샷 속도</div>
             <div style={{ fontSize: 42, fontWeight: 900, color: "#FFFFFF", lineHeight: 1 }}>0.8</div>
             <div style={{ fontSize: 9, fontWeight: 400, color: "rgba(255,255,255,0.45)" }}>초/건</div>
           </div>
-
-          {/* 활기도 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <div style={{ fontSize: 10, fontWeight: 500, color: "#1A1A1A" }}>🔥 활기도</div>
             <div style={{ fontSize: 42, fontWeight: 900, color: "#FFFFFF", lineHeight: 1 }}>89</div>
@@ -247,7 +242,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* ── 중앙 위젯: 점령 맵 (도면 느낌) ── */}
+        {/* 중앙 위젯: 점령 맵 */}
         <div
           style={{
             background: "rgba(255,255,255,0.12)",
@@ -267,7 +262,7 @@ export default function Home() {
           <div style={{ marginBottom: "12px" }}>
             <StadiumDiamondMap zones={zones} />
           </div>
-          
+
           {/* 관람석별 응원 게이지 */}
           <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
             {zones.map((zone) => (
@@ -275,18 +270,37 @@ export default function Home() {
                 <div style={{ fontSize: "10px", fontWeight: 600, color: "#1A1A1A", minWidth: "40px" }}>
                   {zone.owner === "kia" ? "🔴" : "🔵"} 구역{zone.id + 1}
                 </div>
-                <div style={{ flex: 1, height: "6px", background: "rgba(255,255,255,0.15)", borderRadius: "3px", overflow: "hidden" }}>
+                <div
+                  style={{
+                    flex: 1,
+                    height: "6px",
+                    background: "rgba(255,255,255,0.15)",
+                    borderRadius: "3px",
+                    overflow: "hidden",
+                  }}
+                >
                   <div
                     style={{
                       height: "100%",
                       width: `${zone.occupationRate}%`,
-                      background: zone.owner === "kia" ? "rgba(220,50,80,0.8)" : "rgba(50,120,200,0.8)",
+                      background:
+                        zone.owner === "kia"
+                          ? "rgba(220,50,80,0.8)"
+                          : "rgba(50,120,200,0.8)",
                       borderRadius: "3px",
                       transition: "width 0.3s ease",
                     }}
                   />
                 </div>
-                <div style={{ fontSize: "10px", fontWeight: 700, color: "#1A1A1A", minWidth: "30px", textAlign: "right" }}>
+                <div
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    color: "#1A1A1A",
+                    minWidth: "30px",
+                    textAlign: "right",
+                  }}
+                >
                   {zone.occupationRate}%
                 </div>
               </div>
@@ -294,7 +308,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* ── 우측 위젯: LG 전략 지표 ── */}
+        {/* 우측 위젯: LG 전략 지표 */}
         <div
           style={{
             background: "rgba(255,255,255,0.28)",
@@ -314,22 +328,16 @@ export default function Home() {
           <div style={{ fontSize: 10, fontWeight: 600, color: "#1A1A1A", letterSpacing: "0.1em" }}>
             🔵 LG TWINS
           </div>
-
-          {/* 퀴즈 정답률 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <div style={{ fontSize: 10, fontWeight: 500, color: "#1A1A1A" }}>❓ 퀴즈 정답률</div>
             <div style={{ fontSize: 42, fontWeight: 900, color: "#FFFFFF", lineHeight: 1 }}>92</div>
             <div style={{ fontSize: 9, fontWeight: 400, color: "rgba(255,255,255,0.45)" }}>%</div>
           </div>
-
-          {/* 역습 포인트 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <div style={{ fontSize: 10, fontWeight: 500, color: "#1A1A1A" }}>⚡ 역습 포인트</div>
             <div style={{ fontSize: 42, fontWeight: 900, color: "#FFFFFF", lineHeight: 1 }}>+129</div>
             <div style={{ fontSize: 9, fontWeight: 400, color: "rgba(255,255,255,0.45)" }}>누적</div>
           </div>
-
-          {/* 효율 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <div style={{ fontSize: 10, fontWeight: 500, color: "#1A1A1A" }}>📈 효율</div>
             <div style={{ fontSize: 42, fontWeight: 900, color: "#FFFFFF", lineHeight: 1 }}>78</div>
@@ -338,7 +346,7 @@ export default function Home() {
         </div>
       </main>
 
-      {/* ── 하단 AI 브리핑 (LIVE 티커) ── */}
+      {/* 하단 AI 브리핑 LIVE 티커 */}
       <footer
         style={{
           display: "flex",
@@ -371,7 +379,6 @@ export default function Home() {
         <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>
           {ticker.msg}
         </div>
-
         <style>{`
           @keyframes blink {
             0%, 49% { opacity: 1; }
@@ -380,7 +387,7 @@ export default function Home() {
         `}</style>
       </footer>
 
-      {/* ── AI 챗봇 플로팅 버튼 ── */}
+      {/* AI 챗봇 플로팅 버튼 */}
       <div
         style={{
           position: "fixed",
@@ -389,7 +396,6 @@ export default function Home() {
           zIndex: 50,
         }}
       >
-        {/* 말풍선 힌트 */}
         {showHint && (
           <div
             style={{
@@ -411,7 +417,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* 챗봇 버튼 */}
         <button
           onClick={() => setChatOpen(!chatOpen)}
           style={{
@@ -449,7 +454,7 @@ export default function Home() {
         `}</style>
       </div>
 
-      {/* ── 챗봇 모달 ── */}
+      {/* 챗봇 모달 */}
       <ChatbotModal isOpen={chatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );

@@ -1,9 +1,11 @@
 /**
- * ChatbotModal - AI 전략 사령관 (미니멀 글래스모피즘)
- * 
- * Spring Boot 전환:
- *  - 로컬 상태 + setTimeout → useChatbot 훅 (REST POST /api/chat/send)
- *  - 원본 UI 디자인 100% 유지
+ * ChatbotModal.tsx - AI 전략 사령관 (Spring Boot REST API 연동)
+ *
+ * 원본: baseballai-bicevcq9/client/src/components/ChatbotModal.tsx
+ * 변경사항:
+ *  - 로컬 useState + setTimeout → useChatbot 훅으로 분리
+ *  - Spring Boot POST /api/chat/send 연동
+ *  - 폴백: API 없을 시 로컬 랜덤 응답 (원본 동작 유지)
  */
 import { useChatbot } from "@/hooks/useChatbot";
 
@@ -48,7 +50,7 @@ export default function ChatbotModal({ isOpen, onClose }: ChatbotModalProps) {
         }}
       >
         <span style={{ color: "#FFFFFF", fontWeight: 700, fontSize: 13 }}>
-          🤖 AI 명령
+          AI 명령
         </span>
         <button
           onClick={onClose}
@@ -73,7 +75,7 @@ export default function ChatbotModal({ isOpen, onClose }: ChatbotModalProps) {
             e.currentTarget.style.color = "rgba(255,255,255,0.5)";
           }}
         >
-          ✕
+          X
         </button>
       </div>
 
@@ -100,7 +102,10 @@ export default function ChatbotModal({ isOpen, onClose }: ChatbotModalProps) {
               style={{
                 maxWidth: "75%",
                 padding: "9px 13px",
-                borderRadius: msg.sender === "user" ? "12px 12px 3px 12px" : "12px 12px 12px 3px",
+                borderRadius:
+                  msg.sender === "user"
+                    ? "12px 12px 3px 12px"
+                    : "12px 12px 12px 3px",
                 background:
                   msg.sender === "user"
                     ? "rgba(100,150,255,0.75)"

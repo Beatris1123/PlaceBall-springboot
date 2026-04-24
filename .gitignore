@@ -1,11 +1,11 @@
-### Gradle ###
+# ── Gradle ──
 .gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### IntelliJ IDEA ###
+# ── IntelliJ IDEA ──
 .idea/
 *.iws
 *.iml
@@ -14,7 +14,7 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
-### Eclipse ###
+# ── Eclipse ──
 .apt_generated
 .classpath
 .factorypath
@@ -26,34 +26,40 @@ bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 
-### NetBeans ###
+# ── NetBeans ──
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
 
-### VS Code ###
+# ── VS Code ──
 .vscode/
 
-### macOS ###
+# ── OS ──
 .DS_Store
+Thumbs.db
 
-### React Frontend ###
+# ── Spring Boot ──
+*.log
+spring.log
+
+# ── Frontend (Node.js) ──
 frontend/node_modules/
 frontend/.pnpm-store/
 frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
 frontend/.manus-logs/
-frontend/pnpm-lock.yaml
 
-### Spring Boot Static (generated) ###
-src/main/resources/static/
-
-### Logs ###
-*.log
-logs/
-
-### Environment ###
+# ── 환경변수 ──
 .env
 .env.local
 .env.*.local
+
+# ── 정적 리소스 (빌드 시 자동 생성) ──
+src/main/resources/static/assets/
+src/main/resources/static/*.js
+src/main/resources/static/*.css
+src/main/resources/static/index.html

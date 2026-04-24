@@ -1,3 +1,9 @@
+/**
+ * AppErrorBoundary.tsx
+ *
+ * 원본: ErrorBoundary.tsx (이름 충돌 방지를 위해 AppErrorBoundary로 변경)
+ * - 기존 ErrorBoundary.tsx는 그대로 유지되며, App.tsx에서는 이 파일을 사용
+ */
 import { cn } from "@/lib/utils";
 import { AlertTriangle, RotateCcw } from "lucide-react";
 import { Component, ReactNode } from "react";
@@ -11,7 +17,7 @@ interface State {
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
+class AppErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -30,15 +36,12 @@ class ErrorBoundary extends Component<Props, State> {
               size={48}
               className="text-destructive mb-6 flex-shrink-0"
             />
-
             <h2 className="text-xl mb-4">An unexpected error occurred.</h2>
-
             <div className="p-4 w-full rounded bg-muted overflow-auto mb-6">
               <pre className="text-sm text-muted-foreground whitespace-break-spaces">
                 {this.state.error?.stack}
               </pre>
             </div>
-
             <button
               onClick={() => window.location.reload()}
               className={cn(
@@ -54,9 +57,8 @@ class ErrorBoundary extends Component<Props, State> {
         </div>
       );
     }
-
     return this.props.children;
   }
 }
 
-export default ErrorBoundary;
+export default AppErrorBoundary;

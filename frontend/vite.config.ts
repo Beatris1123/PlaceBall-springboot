@@ -4,12 +4,14 @@ import path from "node:path";
 import { defineConfig } from "vite";
 
 /**
- * Vite 설정 - Spring Boot 통합 빌드용
- * 
- * 원본: baseballai-bicevcq9/vite.config.ts 에서 Spring Boot 통합을 위해 수정
- * - 빌드 출력 경로: ../src/main/resources/static (Spring Boot 정적 리소스 디렉토리)
- * - Manus 플러그인 제거 (Spring Boot 환경에서 불필요)
- * - 개발 서버: 프록시 설정으로 Spring Boot API 연동
+ * vite.config.ts - Spring Boot 통합 빌드 설정
+ *
+ * 원본: baseballai-bicevcq9/vite.config.ts 에서 Spring Boot 연동용으로 수정
+ * 변경사항:
+ *  - outDir: src/main/resources/static (Spring Boot 정적 리소스)
+ *  - root: frontend/ (현재 디렉토리)
+ *  - Manus/Manus-Runtime 플러그인 제거
+ *  - 개발 서버 프록시: Spring Boot localhost:8080 연동
  */
 export default defineConfig({
   plugins: [
@@ -18,19 +20,17 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      "@": path.resolve(import.meta.dirname, "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
+      "@": path.resolve(__dirname, "src"),
+      "@shared": path.resolve(__dirname, "shared"),
     },
   },
-  root: path.resolve(import.meta.dirname),
+  root: path.resolve(__dirname),
   build: {
-    // Spring Boot 정적 리소스 경로로 직접 빌드
-    outDir: path.resolve(import.meta.dirname, "../src/main/resources/static"),
+    outDir: path.resolve(__dirname, "../src/main/resources/static"),
     emptyOutDir: true,
   },
   server: {
     port: 5173,
-    // 개발 시 Spring Boot API 프록시
     proxy: {
       "/api": {
         target: "http://localhost:8080",
