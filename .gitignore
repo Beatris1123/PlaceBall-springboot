@@ -32,10 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 
-### macOS ###
+### OS ###
 .DS_Store
-*.swp
+Thumbs.db
 
-### Logs ###
-*.log
-logs/
+### Maven Wrapper ###
+!.mvn/wrapper/

@@ -1,117 +1,103 @@
-# PlaceBall Spring Boot
+# PLACEBALL - Spring Boot
 
-> **원본 프로젝트**: [PlaceBall-final](https://github.com/Beatris1123/PlaceBall-final)  
-> 야구장 구역 점령 대시보드를 **React + Express (TypeScript)** → **Spring Boot Java** 로 완전 변환
+> 원본 React/Node.js 프로젝트를 **Spring Boot Java**로 완전 변환한 야구 팬 응원 점령 대시보드
 
 ---
 
-## 📁 프로젝트 구조
+## 프로젝트 구조
 
 ```
 placeballspring/
-├── src/
-│   ├── main/
-│   │   ├── java/com/placeballspring/
-│   │   │   ├── PlaceballspringApplication.java   # 메인 진입점
-│   │   │   ├── config/
-│   │   │   │   └── WebConfig.java                # CORS, 정적 파일 설정
-│   │   │   ├── controller/
-│   │   │   │   ├── ZoneController.java           # 구역/점수 REST API
-│   │   │   │   ├── ChatbotController.java        # 챗봇 REST API
-│   │   │   │   └── PageController.java           # SPA 라우팅
-│   │   │   ├── model/
-│   │   │   │   ├── Zone.java                     # 구역 모델
-│   │   │   │   ├── ChatMessage.java              # 채팅 메시지 모델
-│   │   │   │   └── ScoreData.java                # 점수 데이터 모델
-│   │   │   └── service/
-│   │   │       ├── ZoneService.java              # 구역 점령 비즈니스 로직
-│   │   │       └── ChatbotService.java           # AI 챗봇 비즈니스 로직
-│   │   └── resources/
-│   │       ├── application.properties            # Spring Boot 설정
-│   │       └── static/
-│   │           ├── index.html                    # SPA 메인 HTML
-│   │           ├── css/style.css                 # 전체 스타일시트
-│   │           └── js/
-│   │               ├── stadium.js                # Canvas 야구장 지도
-│   │               └── app.js                    # 메인 애플리케이션 로직
-│   └── test/java/com/placeballspring/
-│       └── PlaceballspringApplicationTests.java
-└── pom.xml
+├── pom.xml
+└── src/
+    └── main/
+        ├── java/com/placeball/app/
+        │   ├── PlaceBallApplication.java       ← 메인 진입점
+        │   ├── config/
+        │   │   └── WebSocketConfig.java         ← STOMP WebSocket 설정
+        │   ├── controller/
+        │   │   ├── HomeController.java           ← 페이지 라우팅 (/, /404)
+        │   │   ├── GameRestController.java       ← GET /api/gamestate
+        │   │   └── ChatbotController.java        ← POST /api/chat/send
+        │   ├── model/
+        │   │   ├── Zone.java                    ← 야구장 구역 모델
+        │   │   ├── TickerMessage.java            ← LIVE 티커 메시지
+        │   │   ├── GameState.java               ← 전체 게임 상태
+        │   │   └── ChatMessage.java             ← AI 챗봇 메시지
+        │   └── service/
+        │       ├── GameService.java             ← 2초 인터벌 점수/구역 업데이트
+        │       └── ChatbotService.java          ← AI 응답 생성
+        └── resources/
+            ├── application.properties
+            ├── templates/
+            │   ├── index.html                   ← 메인 페이지 (Thymeleaf)
+            │   └── not-found.html               ← 404 페이지
+            └── static/
+                ├── css/style.css                ← 전체 스타일 (글래스모피즘)
+                └── js/
+                    ├── stadium-map.js           ← Canvas 야구장 다이아몬드 맵
+                    └── app.js                   ← 앱 로직 (WebSocket + DOM)
 ```
 
 ---
 
-## 🔄 원본 → Spring Boot 변환 매핑
+## 원본 → 변환 대응표
 
-| 원본 파일 (TypeScript/React) | Spring Boot 파일 |
+| 원본 (React/Node.js) | 변환 (Spring Boot Java) |
 |---|---|
-| `server/index.ts` (Express 서버) | `PlaceballspringApplication.java` + `WebConfig.java` |
-| `client/src/pages/Home.tsx` (상태/UI) | `ZoneService.java` + `static/js/app.js` + `static/index.html` |
-| `client/src/components/ChatbotModal.tsx` | `ChatbotService.java` + `ChatbotController.java` |
-| `client/src/components/StadiumDiamondMap.tsx` | `static/js/stadium.js` |
-| `client/src/index.css` (Tailwind) | `static/css/style.css` (순수 CSS) |
-| React `useState` / `useEffect` | Spring Service + JavaScript `setInterval` / `fetch` |
+| `server/index.ts` (Express) | `PlaceBallApplication.java` + `HomeController.java` |
+| `pages/Home.tsx` (React) | `templates/index.html` + `js/app.js` |
+| `components/StadiumDiamondMap.tsx` | `js/stadium-map.js` |
+| `components/ChatbotModal.tsx` | `ChatbotController.java` + `ChatbotService.java` |
+| `useState(INITIAL_ZONES)` | `GameService.zones` (List<Zone>) |
+| `setInterval(2000ms)` 점수 업데이트 | `@Scheduled(fixedDelay=2000)` |
+| `setInterval(4000ms)` 티커 순환 | `@Scheduled(fixedDelay=4000)` |
+| WebSocket (없음, 폴링 방식) | Spring STOMP + SockJS WebSocket |
+| `interface Zone` (TypeScript) | `Zone.java` (Lombok) |
+| `interface Message` (TypeScript) | `ChatMessage.java` (Lombok) |
+| `AI_RESPONSES[random]` | `ChatbotService.generateAiResponse()` |
+| `index.css` (Tailwind) | `static/css/style.css` (Vanilla CSS) |
 
 ---
 
-## 🚀 실행 방법
+## 실행 방법
 
-### 필요 환경
-- Java 17+
-- Maven 3.6+
+### 사전 조건
+- Java 17 이상
+- Maven 3.6 이상
 
-### 빌드 & 실행
+### 실행
 
 ```bash
-# 의존성 설치 & 빌드
+# 의존성 다운로드 & 빌드
 mvn clean install
 
 # 실행
 mvn spring-boot:run
 ```
 
-브라우저에서 `http://localhost:8080` 접속
+접속: http://localhost:8080
 
 ---
 
-## 🌐 REST API 엔드포인트
-
-### 구역/점수 API
+## API 엔드포인트
 
 | Method | URL | 설명 |
-|--------|-----|------|
-| `GET`  | `/api/zones` | 구역 목록 조회 |
-| `GET`  | `/api/score` | 현재 점수 조회 |
-| `POST` | `/api/score/refresh` | 점수 & 구역 갱신 |
-
-### 챗봇 API
-
-| Method | URL | 설명 |
-|--------|-----|------|
-| `GET`    | `/api/chat/messages` | 채팅 히스토리 조회 |
-| `POST`   | `/api/chat/send` | 메시지 전송 & AI 응답 |
-| `DELETE` | `/api/chat/reset` | 채팅 초기화 |
+|---|---|---|
+| `GET` | `/` | 메인 대시보드 페이지 |
+| `GET` | `/404` | 404 페이지 |
+| `GET` | `/api/gamestate` | 현재 게임 상태 JSON |
+| `GET` | `/api/chat/welcome` | AI 초기 인사 메시지 |
+| `POST` | `/api/chat/send` | AI 채팅 메시지 전송 |
+| `WS` | `/ws` | STOMP WebSocket (실시간 업데이트) |
 
 ---
 
-## ✨ 주요 기능
+## 기술 스택
 
-- **실시간 점수 대시보드**: KIA vs LG 팀 점수 2초마다 자동 갱신
-- **야구장 구역 점령 맵**: Canvas API로 구현된 다이아몬드 지도
-- **구역 점령률 게이지**: 6개 구역의 실시간 점령 현황
-- **LIVE 티커**: 실시간 AI 브리핑 메시지 순환
-- **AI 챗봇**: 전략 분석 챗봇 (플로팅 버튼)
-- **글래스모피즘 UI**: 반투명 위젯 & 배경 블러 효과
-
----
-
-## 🛠 기술 스택
-
-| 구분 | 원본 | Spring Boot 변환 |
-|------|------|-----------------|
-| 서버 | Express.js (TypeScript) | Spring Boot 3.2 (Java 17) |
-| 빌드 | Vite + esbuild | Maven |
-| 프론트엔드 | React 19 + TypeScript | 순수 HTML5 + CSS3 + JavaScript |
-| 스타일 | Tailwind CSS v4 | 순수 CSS (CSS Variables) |
-| 상태관리 | React useState/useEffect | JavaScript 전역 state + fetch API |
-| API | Express static serving | Spring MVC REST API |
+- **Backend**: Spring Boot 3.2.5, Java 17
+- **Template**: Thymeleaf
+- **WebSocket**: Spring STOMP + SockJS
+- **Frontend**: Vanilla JS + Canvas API
+- **Style**: Vanilla CSS (글래스모피즘)
+- **Build**: Maven

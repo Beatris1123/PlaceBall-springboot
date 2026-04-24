@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<!--
+  not-found.html (Thymeleaf)
+  원본: client/src/pages/NotFound.tsx (React)
+-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>404 - PLACEBALL</title>
+  <link rel="stylesheet" th:href="@{/css/style.css}" />
+  <style>
+    /* 404 전용 스타일 (원본 NotFound.tsx 인라인 Tailwind 클래스 복원) */
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+      font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+      margin: 0;
+    }
+    .card {
+      width: 100%;
+      max-width: 480px;
+      margin: 0 16px;
+      background: rgba(255,255,255,0.8);
+      backdrop-filter: blur(8px);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+      padding: 48px 32px;
+      text-align: center;
+    }
+    .icon-wrap {
+      position: relative;
+      display: inline-flex;
+      margin-bottom: 24px;
+    }
+    .icon-pulse {
+      position: absolute;
+      inset: 0;
+      background: #fee2e2;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    .alert-icon {
+      position: relative;
+      font-size: 64px;
+      color: #ef4444;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.6; transform: scale(1.1); }
+    }
+    h1 {
+      font-size: 48px;
+      font-weight: 900;
+      color: #0f172a;
+      margin: 0 0 8px;
+    }
+    h2 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #334155;
+      margin: 0 0 16px;
+    }
+    p {
+      color: #475569;
+      line-height: 1.75;
+      margin: 0 0 32px;
+    }
+    .go-home-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+    }
+    .go-home-btn:hover {
+      background: #1d4ed8;
+      box-shadow: 0 6px 18px rgba(37,99,235,0.4);
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-wrap">
+      <div class="icon-pulse"></div>
+      <div class="alert-icon">⚠️</div>
+    </div>
+
+    <h1>404</h1>
+    <h2>Page Not Found</h2>
+    <p>
+      Sorry, the page you are looking for doesn't exist.<br/>
+      It may have been moved or deleted.
+    </p>
+
+    <a href="/" class="go-home-btn">
+      🏠 Go Home
+    </a>
+  </div>
+</body>
+</html>
