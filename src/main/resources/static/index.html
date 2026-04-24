@@ -1,45 +1,209 @@
 <!doctype html>
 <html lang="ko">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>PLACEBALL - AI 야구 구역 점령 대시보드</title>
-    <meta name="description" content="KIA vs LG 야구 팬 응원 구역 점령 실시간 대시보드 - Spring Boot 백엔드 연동" />
-    <style>
-      /* 로딩 스피너 - React 번들 로드 전 표시 */
-      body {
-        margin: 0;
-        background: #0f1117;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 100vh;
-        font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
-      }
-      #root:empty::after {
-        content: 'PLACEBALL 로딩 중...';
-        color: rgba(255,255,255,0.4);
-        font-size: 14px;
-        letter-spacing: 0.1em;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PLACEBALL — AI 야구 구역 점령 대시보드</title>
+  <meta name="description" content="KIA vs LG 실시간 구역 점령 대시보드 · Spring Boot + WebSocket" />
+
+  <!--
+    WebController.java:
+      @RequestMapping("/", "/404", "/{path:[^\\.]*}", ...)
+      return "forward:/index.html";
+    → 모든 경로에서 이 파일이 서빙됩니다.
+
+    WebConfig.java:
+      registry.addResourceHandler("/assets/**", "/*.js", "/*.css" ...)
+    → css/, js/ 하위 정적 파일 서빙
+  -->
+  <link rel="stylesheet" href="/css/style.css" />
+
+  <!--
+    SockJS + STOMP 클라이언트
+    WebSocketConfig.java: registry.addEndpoint("/ws").withSockJS()
+    → 브라우저에서 /ws 에 SockJS로 연결
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+</head>
+<body>
+
+  <!-- =====================================================
+       HEADER
+       GameController GET /api/game/state → kiaScore, lgScore 표시
+       GameService @Scheduled(2s) → /topic/gamestate 로 실시간 갱신
+       ===================================================== -->
+  <header class="header">
+    <div class="header__logo">PLACEBALL</div>
+
+    <div class="header__scoreboard">
+      <!-- KIA 점수: Zone model owner="kia" 구역들의 점수 합산 -->
+      <div class="score-block score-block--kia">
+        <span class="score-block__emoji">🔴</span>
+        <span class="score-block__value" id="kia-score">3,171</span>
+        <span class="score-block__label">KIA</span>
+      </div>
+
+      <div class="score-block__vs">VS</div>
+
+      <!-- LG 점수: Zone model owner="lg" 구역들의 점수 합산 -->
+      <div class="score-block score-block--lg">
+        <span class="score-block__emoji">🔵</span>
+        <span class="score-block__value" id="lg-score">2,862</span>
+        <span class="score-block__label">LG</span>
+      </div>
+    </div>
+
+    <button class="header__diary-btn" id="diary-btn">📅 직관</button>
+  </header>
+
+  <!-- =====================================================
+       MAIN LAYOUT
+       3-column grid:
+         Left  → KIA 응원 지표 위젯
+         Center → Stadium Diamond Map (Canvas) + 구역 게이지
+         Right → LG 전략 지표 위젯
+       ===================================================== -->
+  <main class="main">
+
+    <!-- LEFT: KIA 응원 지표
+         Zone id=0(1루석, KIA), id=3(좌외야, KIA) 의 데이터 반영 -->
+    <aside class="widget widget--kia">
+      <div class="widget__team-label">🔴 KIA TIGERS</div>
+
+      <div class="widget__stat">
+        <div class="widget__stat-icon">💬 수다글</div>
+        <div class="widget__stat-value">2,847</div>
+        <div class="widget__stat-unit">평균 업로드</div>
+      </div>
+
+      <div class="widget__stat">
+        <div class="widget__stat-icon">📸 인증샷 속도</div>
+        <div class="widget__stat-value">0.8</div>
+        <div class="widget__stat-unit">초/건</div>
+      </div>
+
+      <div class="widget__stat">
+        <div class="widget__stat-icon">🔥 활기도</div>
+        <div class="widget__stat-value" id="kia-vitality">89</div>
+        <div class="widget__stat-unit">현재 수준</div>
+      </div>
+    </aside>
+
+    <!-- CENTER: 야구장 다이아몬드 맵 + 구역 게이지
+         stadium-map.js 가 렌더링
+         GameService Zone 모델 6개: id 0~5, owner, occupationRate(1~99)
+         /topic/gamestate 수신 시 실시간 Canvas 재드로우 -->
+    <section class="center-panel">
+      <div class="stadium-wrap">
+        <!--
+          stadium-map.js:
+          Zone 0: 1루 응원석(KIA) / Zone 1: 중앙 내야(LG)
+          Zone 2: 3루 응원석(LG)  / Zone 3: 좌외야(KIA)
+          Zone 4: 중외야(LG)      / Zone 5: 우외야(LG)
+          occupationRate 1~99 → 구역 색상 강도 & % 텍스트
+        -->
+        <canvas id="stadium-canvas" width="220" height="220"></canvas>
+      </div>
+
+      <!-- 구역별 응원 게이지 바
+           GameController /api/game/state → 초기값 렌더
+           /topic/gamestate → 2초마다 실시간 업데이트 -->
+      <div class="zone-gauges" id="zone-gauges">
+        <!-- js/app.js 에서 동적 생성 -->
+      </div>
+    </section>
+
+    <!-- RIGHT: LG 전략 지표
+         Zone id=1(중앙 내야, LG), id=2(3루석, LG),
+              id=4(중외야, LG), id=5(우외야, LG) 의 데이터 반영 -->
+    <aside class="widget widget--lg">
+      <div class="widget__team-label">🔵 LG TWINS</div>
+
+      <div class="widget__stat">
+        <div class="widget__stat-icon">❓ 퀴즈 정답률</div>
+        <div class="widget__stat-value">92</div>
+        <div class="widget__stat-unit">%</div>
+      </div>
+
+      <div class="widget__stat">
+        <div class="widget__stat-icon">⚡ 역습 포인트</div>
+        <div class="widget__stat-value">+129</div>
+        <div class="widget__stat-unit">누적</div>
+      </div>
+
+      <div class="widget__stat">
+        <div class="widget__stat-icon">📈 효율</div>
+        <div class="widget__stat-value" id="lg-efficiency">78</div>
+        <div class="widget__stat-unit">%</div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- =====================================================
+       FOOTER — LIVE 티커
+       GameController GET /api/game/ticker → 초기 메시지
+       GameService @Scheduled(4s) → /topic/ticker → 4초마다 메시지 교체
+       ===================================================== -->
+  <footer class="footer">
+    <span class="footer__live">LIVE</span>
+    <span class="footer__robot">🤖</span>
+    <span class="footer__msg" id="ticker-msg">KIA 팬들의 응원 화력이 급증 중입니다!</span>
+  </footer>
+
+  <!-- =====================================================
+       CHATBOT FLOATING BUTTON
+       클릭 → chatbot-modal 열기/닫기
+       ===================================================== -->
+  <div class="fab-wrap">
+    <!-- 말풍선 힌트 (3초마다 토글) -->
+    <div class="fab-hint" id="fab-hint">전략 분석을 시작할까요?</div>
+    <button class="fab" id="chatbot-fab" title="AI 전략 사령관 열기">🤖</button>
+  </div>
+
+  <!-- =====================================================
+       CHATBOT MODAL
+       ChatbotController:
+         GET  /api/chat/welcome  → 환영 메시지 표시
+         POST /api/chat/send     → { text } → AI ChatMessage 응답
+       ===================================================== -->
+  <div class="chatbot-modal" id="chatbot-modal" aria-hidden="true">
+    <div class="chatbot-modal__header">
+      <span>🤖 AI 명령</span>
+      <button class="chatbot-modal__close" id="chatbot-close" aria-label="챗봇 닫기">✕</button>
+    </div>
+
     <!--
-      이 index.html은 Spring Boot 정적 리소스로 서빙됩니다.
-      React(Vite) 빌드 후 frontend/npm run build 시
-      src/main/resources/static/ 에 빌드 결과물이 생성됩니다.
-
-      개발 시:
-        1. ./gradlew bootRun   (Spring Boot 백엔드, :8080)
-        2. cd frontend && npm run dev  (Vite dev server, :5173)
-
-      프로덕션 빌드:
-        1. cd frontend && npm run build
-        2. ./gradlew bootRun
-        → http://localhost:8080
+      ChatMessage 모델: { id, sender("ai"|"user"), text, timestamp }
+      메시지는 js/chatbot.js 가 동적으로 <div class="msg msg--ai/user"> 생성
     -->
-    <script type="module" src="/assets/main.js"></script>
-  </body>
+    <div class="chatbot-modal__messages" id="chat-messages"></div>
+
+    <div class="chatbot-modal__input-row">
+      <input
+        type="text"
+        id="chat-input"
+        class="chatbot-modal__input"
+        placeholder="메시지를 입력하세요..."
+        autocomplete="off"
+      />
+      <button class="chatbot-modal__send" id="chat-send">전송</button>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       SCRIPTS
+       로딩 순서:
+         1. api.js       → REST 호출 (GameController, ChatbotController)
+         2. websocket.js → STOMP 연결 (GameService /topic/gamestate, /topic/ticker)
+         3. stadium-map.js → Canvas 야구장 맵 (Zone 6개 렌더링)
+         4. chatbot.js   → 챗봇 UI (ChatbotController)
+         5. app.js       → 모든 모듈 초기화 + DOM 바인딩
+       ===================================================== -->
+  <script src="/js/api.js"></script>
+  <script src="/js/websocket.js"></script>
+  <script src="/js/stadium-map.js"></script>
+  <script src="/js/chatbot.js"></script>
+  <script src="/js/app.js"></script>
+</body>
 </html>
