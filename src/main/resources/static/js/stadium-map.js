@@ -1,24 +1,23 @@
 /**
- * stadium-map.js — PLACEBALL 야구장 Canvas 렌더링
+ * stadium-map.js — PLACEBALL 야구장 다이아몬드 캔버스 렌더러
  *
- * 연결된 백엔드 모델:
- *   Zone.java: { int id, String owner("kia"|"lg"|"neutral"), int occupationRate(1~99) }
+ * 연결된 백엔드:
+ *   Zone.java 모델: { id, owner("kia"|"lg"|"neutral"), occupationRate(1~99) }
+ *   GameService.java 초기 Zone 6개:
+ *     id 0 — 1루 응원석  (kia,  76%)
+ *     id 1 — 중앙 내야   (lg,   72%)
+ *     id 2 — 3루 응원석  (lg,   68%)
+ *     id 3 — 좌외야      (kia,  61%)
+ *     id 4 — 중외야      (lg,   72%)
+ *     id 5 — 우외야      (lg,   81%)
  *
- *   Zone 배치 (GameService.java 초기값):
- *     id 0 — 1루 응원석  (owner:"kia", 초기:76%)
- *     id 1 — 중앙 내야   (owner:"lg",  초기:72%)
- *     id 2 — 3루 응원석  (owner:"lg",  초기:68%)
- *     id 3 — 좌외야      (owner:"kia", 초기:61%)
- *     id 4 — 중외야      (owner:"lg",  초기:72%)
- *     id 5 — 우외야      (owner:"lg",  초기:81%)
+ *   실시간: WebSocket /topic/gamestate → PlaceballWS → StadiumMap.update(zones)
  *
- * 원본 TypeScript:
- *   StadiumDiamondMap.tsx — useRef canvas, 네온 다이아몬드, Zone 글로우 원
- *   StadiumSeatMap.tsx    — 섹터별 부채꼴, 그라데이션 배경
+ * 원본 참조:
+ *   StadiumDiamondMap.tsx (200×200 canvas, neon glow style)
+ *   StadiumSeatMap.tsx    (500×500 canvas, sector geometry)
  *
- * 사용법:
- *   StadiumMap.draw(zones)   — 최초 또는 전체 재드로우
- *   StadiumMap.update(zones) — 실시간 WebSocket 갱신 시 호출
+ * 이 파일은 두 컴포넌트를 통합하여 220×220 canvas 에 렌더링합니다.
  */
 
 const StadiumMap = (() => {
@@ -26,306 +25,221 @@ const StadiumMap = (() => {
   const W = 220, H = 220;
   const CX = W / 2, CY = H / 2;
 
-  // ── 팀 색상 ──
+  // ── 색상 팔레트 (style.css :root 변수와 동기화) ──
   const COLOR = {
     kia:     '#DC3250',
     kiaGlow: 'rgba(220,50,80,0.75)',
     lg:      '#3278C8',
     lgGlow:  'rgba(50,120,200,0.75)',
     neutral: '#888888',
-    white:   '#FFFFFF',
-    field:   'rgba(30,60,30,0.85)',
-    dirt:    'rgba(120,80,40,0.6)',
+    ground:  'rgba(34,85,34,0.55)',
+    grass:   'rgba(50,120,50,0.35)',
     line:    'rgba(255,255,255,0.55)',
-    neon:    'rgba(255,255,255,0.12)',
+    text:    '#FFFFFF',
   };
 
-  // ── Zone 라벨 (한국어) ──
-  const ZONE_LABELS = {
-    0: '1루석',
-    1: '중앙내야',
-    2: '3루석',
-    3: '좌외야',
-    4: '중외야',
-    5: '우외야',
-  };
+  // Zone 위치 정의 (다이아몬드 기준 각도·반경)
+  // 원본 StadiumDiamondMap.tsx 의 circle 배치를 각도로 재현
+  const ZONE_POSITIONS = [
+    { id: 0, label: '1루\n응원석', angle: 45,   r: 72 },   // 1루 방향 (우하)
+    { id: 1, label: '중앙\n내야',  angle: 270,  r: 42 },   // 내야 중앙 (상단)
+    { id: 2, label: '3루\n응원석', angle: 135,  r: 72 },   // 3루 방향 (좌하)
+    { id: 3, label: '좌외야',      angle: 160,  r: 92 },   // 좌외야
+    { id: 4, label: '중외야',      angle: 270,  r: 95 },   // 중외야
+    { id: 5, label: '우외야',      angle: 20,   r: 92 },   // 우외야
+  ];
 
-  /** Zone owner → 주색 */
-  function ownerColor(owner) {
+  let canvas = null;
+  let ctx    = null;
+  let currentZones = [];
+
+  /** 캔버스 초기화 */
+  function init(zones) {
+    canvas = document.getElementById(CANVAS_ID);
+    if (!canvas) { console.warn('[StadiumMap] canvas 없음'); return; }
+    canvas.width  = W;
+    canvas.height = H;
+    ctx = canvas.getContext('2d');
+    currentZones = zones || [];
+    _draw();
+  }
+
+  /** 외부에서 zones 업데이트 후 재드로우 */
+  function update(zones) {
+    currentZones = zones || [];
+    if (ctx) _draw();
+  }
+
+  // ── 내부 드로우 ──────────────────────────────────────────────
+
+  function _draw() {
+    ctx.clearRect(0, 0, W, H);
+    _drawBackground();
+    _drawFoulLines();
+    _drawOutfieldArc();
+    _drawInfieldArc();
+    _drawDiamond();
+    _drawZones();
+    _drawGroundLabel();
+  }
+
+  /** 그라운드 배경 그라디언트 */
+  function _drawBackground() {
+    const grad = ctx.createRadialGradient(CX, CY, 10, CX, CY, 100);
+    grad.addColorStop(0,   'rgba(34,85,34,0.70)');
+    grad.addColorStop(0.6, 'rgba(20,60,20,0.55)');
+    grad.addColorStop(1,   'rgba(10,30,10,0.30)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(CX, CY, 100, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /** 파울라인 (홈→1루, 홈→3루) */
+  function _drawFoulLines() {
+    ctx.save();
+    ctx.strokeStyle = COLOR.line;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.6;
+
+    // 홈 → 1루 방향 (우하 45°)
+    ctx.beginPath();
+    ctx.moveTo(CX, CY);
+    ctx.lineTo(CX + 100 * Math.cos(_deg(45)), CY + 100 * Math.sin(_deg(45)));
+    ctx.stroke();
+
+    // 홈 → 3루 방향 (좌하 135°)
+    ctx.beginPath();
+    ctx.moveTo(CX, CY);
+    ctx.lineTo(CX + 100 * Math.cos(_deg(135)), CY + 100 * Math.sin(_deg(135)));
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  /** 외야 원호 */
+  function _drawOutfieldArc() {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(CX, CY, 100, _deg(45), _deg(135));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** 내야 원호 */
+  function _drawInfieldArc() {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(CX, CY, 60, _deg(0), _deg(180));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** 다이아몬드 (홈+1·2·3루 베이스) */
+  function _drawDiamond() {
+    const baseSize = 5;
+    const dist = 38; // 베이스 간격(픽셀)
+
+    // 베이스 좌표: 홈(하), 1루(우), 2루(상), 3루(좌)
+    const bases = [
+      { x: CX,        y: CY + dist, label: 'H' },  // 홈
+      { x: CX + dist, y: CY,        label: '1' },  // 1루
+      { x: CX,        y: CY - dist, label: '2' },  // 2루
+      { x: CX - dist, y: CY,        label: '3' },  // 3루
+    ];
+
+    // 다이아몬드 선
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.60)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(bases[0].x, bases[0].y);
+    bases.forEach(b => ctx.lineTo(b.x, b.y));
+    ctx.closePath();
+    ctx.stroke();
+
+    // 베이스 사각형
+    ctx.fillStyle = '#FFFFFF';
+    bases.forEach(b => {
+      ctx.fillRect(b.x - baseSize / 2, b.y - baseSize / 2, baseSize, baseSize);
+    });
+    ctx.restore();
+  }
+
+  /** Zone 6개 렌더링 */
+  function _drawZones() {
+    ZONE_POSITIONS.forEach(pos => {
+      const zone = currentZones.find(z => z.id === pos.id);
+      if (!zone) return;
+
+      const rad   = _deg(pos.angle);
+      const zx    = CX + pos.r * Math.cos(rad);
+      const zy    = CY + pos.r * Math.sin(rad);
+      const color = _zoneColor(zone.owner);
+      const alpha = 0.35 + (zone.occupationRate / 99) * 0.55; // 점령률 → 투명도
+
+      // 글로우 원
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      const glow = ctx.createRadialGradient(zx, zy, 2, zx, zy, 18);
+      glow.addColorStop(0,   color);
+      glow.addColorStop(0.6, color.replace(')', ',0.6)').replace('rgb', 'rgba'));
+      glow.addColorStop(1,   'transparent');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(zx, zy, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // 테두리 원
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.arc(zx, zy, 15, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      // 점령률 텍스트
+      ctx.save();
+      ctx.fillStyle = COLOR.text;
+      ctx.font = 'bold 8px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${zone.occupationRate}%`, zx, zy - 1);
+
+      // 팀 라벨
+      ctx.font = '6px sans-serif';
+      ctx.globalAlpha = 0.75;
+      ctx.fillText(zone.owner.toUpperCase(), zx, zy + 8);
+      ctx.restore();
+    });
+  }
+
+  /** 중앙 GROUND 라벨 */
+  function _drawGroundLabel() {
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('GROUND', CX, CY - 12);
+    ctx.restore();
+  }
+
+  // ── 유틸 ──
+  function _deg(d) { return (d * Math.PI) / 180; }
+
+  function _zoneColor(owner) {
     if (owner === 'kia') return COLOR.kia;
     if (owner === 'lg')  return COLOR.lg;
     return COLOR.neutral;
   }
 
-  /** Zone owner → 글로우 색 */
-  function ownerGlow(owner) {
-    if (owner === 'kia') return COLOR.kiaGlow;
-    if (owner === 'lg')  return COLOR.lgGlow;
-    return 'rgba(136,136,136,0.5)';
-  }
-
-  /** 점령률(1~99) → 0.2~0.95 알파값 */
-  function rateToAlpha(rate) {
-    return 0.20 + (rate / 99) * 0.75;
-  }
-
-  /**
-   * 메인 드로우 함수
-   * @param {Array<{id:number, owner:string, occupationRate:number}>} zones
-   */
-  function draw(zones) {
-    const canvas = document.getElementById(CANVAS_ID);
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-
-    canvas.width  = W;
-    canvas.height = H;
-
-    ctx.clearRect(0, 0, W, H);
-
-    _drawBackground(ctx);
-    _drawOutfield(ctx, zones);
-    _drawInfield(ctx, zones);
-    _drawDiamond(ctx);
-    _drawZoneLabels(ctx, zones);
-    _drawCenterLabel(ctx);
-  }
-
-  /** update = draw alias (실시간 갱신용 명시적 이름) */
-  function update(zones) {
-    draw(zones);
-  }
-
-  // ─────────────────────────────────────────────────
-  // Private drawing helpers
-  // ─────────────────────────────────────────────────
-
-  /** 배경 그라데이션 — 어두운 원형 필드 */
-  function _drawBackground(ctx) {
-    const grad = ctx.createRadialGradient(CX, CY, 20, CX, CY, CX);
-    grad.addColorStop(0,   'rgba(20,40,20,0.95)');
-    grad.addColorStop(0.5, 'rgba(15,35,15,0.9)');
-    grad.addColorStop(1,   'rgba(10,20,10,0.8)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(CX, CY, CX - 4, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  /**
-   * 외야 섹터 3개 (Zone id 3,4,5 → 좌/중/우 외야)
-   * 원본 StadiumSeatMap.tsx outfield sectors
-   */
-  function _drawOutfield(ctx, zones) {
-    // 외야: 반경 50~95, 각 섹터 120° 폭
-    const outerR = 95;
-    const innerR = 50;
-
-    // [zoneId, 시작각(rad), 끝각(rad), 라벨 각도]
-    const sectors = [
-      { zoneId: 3, startAngle: Math.PI + 0.25,      endAngle: Math.PI * 1.5,         labelAngle: Math.PI * 1.25  }, // 좌외야
-      { zoneId: 4, startAngle: Math.PI * 1.5,        endAngle: Math.PI * 2 - 0.25,    labelAngle: Math.PI * 1.75  }, // 중외야
-      { zoneId: 5, startAngle: Math.PI * 2 - 0.25,   endAngle: Math.PI * 2 + 0.52,   labelAngle: Math.PI * 2.09  }, // 우외야
-    ];
-
-    sectors.forEach(({ zoneId, startAngle, endAngle }) => {
-      const zone = zones.find(z => z.id === zoneId);
-      if (!zone) return;
-
-      const alpha = rateToAlpha(zone.occupationRate);
-      const color = ownerColor(zone.owner);
-
-      // 섹터 채우기
-      ctx.beginPath();
-      ctx.moveTo(CX + innerR * Math.cos(startAngle), CY + innerR * Math.sin(startAngle));
-      ctx.arc(CX, CY, outerR, startAngle, endAngle);
-      ctx.arc(CX, CY, innerR, endAngle, startAngle, true);
-      ctx.closePath();
-
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-
-      // 섹터 외곽선
-      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    });
-  }
-
-  /**
-   * 내야 섹터 3개 (Zone id 0,1,2 → 1루석/중앙내야/3루석)
-   * 원본 StadiumSeatMap.tsx infield sectors
-   */
-  function _drawInfield(ctx, zones) {
-    const outerR = 48;
-    const innerR = 18;
-
-    const sectors = [
-      { zoneId: 0, startAngle: -0.2,          endAngle: Math.PI * 0.5 + 0.2 }, // 1루석 (오른쪽)
-      { zoneId: 1, startAngle: Math.PI * 0.5 + 0.2, endAngle: Math.PI + 0.2  }, // 중앙내야 (하단)
-      { zoneId: 2, startAngle: Math.PI + 0.2,  endAngle: Math.PI * 2 - 0.2   }, // 3루석 (왼쪽)
-    ];
-
-    sectors.forEach(({ zoneId, startAngle, endAngle }) => {
-      const zone = zones.find(z => z.id === zoneId);
-      if (!zone) return;
-
-      const alpha = rateToAlpha(zone.occupationRate);
-      const color = ownerColor(zone.owner);
-
-      ctx.beginPath();
-      ctx.moveTo(CX + innerR * Math.cos(startAngle), CY + innerR * Math.sin(startAngle));
-      ctx.arc(CX, CY, outerR, startAngle, endAngle);
-      ctx.arc(CX, CY, innerR, endAngle, startAngle, true);
-      ctx.closePath();
-
-      ctx.globalAlpha = alpha * 0.85;
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-
-      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-      ctx.lineWidth = 0.8;
-      ctx.stroke();
-    });
-  }
-
-  /**
-   * 야구장 다이아몬드 (베이스 라인 + 홈플레이트 + 베이스)
-   * 원본 StadiumDiamondMap.tsx — 네온 글로우 스타일
-   */
-  function _drawDiamond(ctx) {
-    const size = 14; // 다이아몬드 반변 길이
-
-    // 베이스 좌표 (다이아몬드: 홈 아래, 1루 오른쪽, 2루 위, 3루 왼쪽)
-    const home  = { x: CX,          y: CY + size * 1.4  };
-    const first = { x: CX + size,   y: CY               };
-    const sec   = { x: CX,          y: CY - size * 1.4  };
-    const third = { x: CX - size,   y: CY               };
-
-    // 파울 라인
-    ctx.save();
-    ctx.setLineDash([3, 4]);
-    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
-    ctx.lineWidth = 1;
-    // 1루 파울라인
-    ctx.beginPath();
-    ctx.moveTo(home.x, home.y);
-    ctx.lineTo(CX + 90, CY - 40);
-    ctx.stroke();
-    // 3루 파울라인
-    ctx.beginPath();
-    ctx.moveTo(home.x, home.y);
-    ctx.lineTo(CX - 90, CY - 40);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
-
-    // 다이아몬드 라인 (네온 화이트)
-    ctx.save();
-    ctx.shadowColor = 'rgba(255,255,255,0.6)';
-    ctx.shadowBlur  = 5;
-    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-    ctx.lineWidth   = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(home.x, home.y);
-    ctx.lineTo(first.x, first.y);
-    ctx.lineTo(sec.x, sec.y);
-    ctx.lineTo(third.x, third.y);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.restore();
-
-    // 내야 아크
-    ctx.beginPath();
-    ctx.arc(CX, CY, size * 1.6, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // 베이스 사각형
-    [first, sec, third].forEach(b => {
-      ctx.save();
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.shadowColor = 'rgba(255,255,255,0.9)';
-      ctx.shadowBlur  = 4;
-      ctx.fillRect(b.x - 3, b.y - 3, 6, 6);
-      ctx.restore();
-    });
-
-    // 홈플레이트 (오각형)
-    ctx.save();
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.shadowColor = 'rgba(255,255,255,0.9)';
-    ctx.shadowBlur  = 6;
-    ctx.beginPath();
-    ctx.moveTo(home.x,     home.y - 4);
-    ctx.lineTo(home.x + 4, home.y    );
-    ctx.lineTo(home.x + 3, home.y + 4);
-    ctx.lineTo(home.x - 3, home.y + 4);
-    ctx.lineTo(home.x - 4, home.y    );
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  }
-
-  /**
-   * Zone 점령률(%) 텍스트 + 팀 라벨 오버레이
-   * 원본 StadiumDiamondMap.tsx — zone 원 위 텍스트
-   */
-  function _drawZoneLabels(ctx, zones) {
-    // 각 Zone의 라벨 표시 위치 (캔버스 좌표)
-    const positions = {
-      0: { x: CX + 66, y: CY + 8   }, // 1루석 오른쪽
-      1: { x: CX,      y: CY + 68  }, // 중앙내야 아래
-      2: { x: CX - 66, y: CY + 8   }, // 3루석 왼쪽
-      3: { x: CX - 74, y: CY - 48  }, // 좌외야
-      4: { x: CX,      y: CY - 78  }, // 중외야 위
-      5: { x: CX + 74, y: CY - 48  }, // 우외야
-    };
-
-    zones.forEach(zone => {
-      const pos = positions[zone.id];
-      if (!pos) return;
-
-      const color = ownerColor(zone.owner);
-
-      // 글로우 원
-      ctx.save();
-      ctx.shadowColor = ownerGlow(zone.owner);
-      ctx.shadowBlur  = 10;
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, 14, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(0,0,0,0.55)`;
-      ctx.fill();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.restore();
-
-      // 점령률 %
-      ctx.save();
-      ctx.font = 'bold 9px Courier New, monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = color;
-      ctx.fillText(`${zone.occupationRate}%`, pos.x, pos.y);
-      ctx.restore();
-    });
-  }
-
-  /** 중앙 "GROUND" 텍스트 */
-  function _drawCenterLabel(ctx) {
-    ctx.save();
-    ctx.font = 'bold 7px Courier New, monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(255,255,255,0.30)';
-    ctx.fillText('GROUND', CX, CY - 2);
-    ctx.restore();
-  }
-
-  return { draw, update };
+  return { init, update };
 })();
