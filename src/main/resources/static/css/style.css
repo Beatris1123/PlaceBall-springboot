@@ -1,0 +1,580 @@
+/*
+ * style.css - PlaceBall Spring Boot 프론트엔드 스타일시트
+ *
+ * 원본 소스:
+ *   - client/src/index.css (Tailwind CSS 변수/테마)
+ *   - client/src/pages/Home.tsx (인라인 스타일)
+ *   - client/src/components/ChatbotModal.tsx (인라인 스타일)
+ *
+ * 순수 CSS로 완전 변환 (Tailwind 없이)
+ */
+
+/* ── CSS 변수 (원본 index.css 다크 테마) ──────────────────── */
+:root {
+  --background: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.85 0.005 65);
+  --primary: #3b82f6;
+  --primary-foreground: #eff6ff;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --radius: 0.65rem;
+
+  --color-kia: #DC3250;
+  --color-lg: #3278C8;
+
+  /* 배경 일러스트 CDN */
+  --illustration-url: url('https://d2xsxph8kpxj0f.cloudfront.net/310519663555046363/MNHzhWkk75iGVRjusfbvzN/Gemini_Generated_Image_t2t6jzt2t6jzt2t6_5ac76708.png');
+}
+
+/* ── 리셋 & 기본 ──────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  color: #FFFFFF;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ── 앱 루트 ──────────────────────────────────────────────── */
+#app {
+  min-height: 100vh;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.10)),
+    var(--illustration-url) center / cover fixed no-repeat;
+  background-blend-mode: multiply;
+  color: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ══════════════════════════════════════════════════════════
+   HEADER
+   원본: <header> in Home.tsx
+══════════════════════════════════════════════════════════ */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 40px;
+  height: 70px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #EEEEEE;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+/* 로고 */
+.logo {
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  color: #1A1A1A;
+}
+
+/* 중앙 점수판 */
+.scoreboard {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex: 1;
+  justify-content: center;
+}
+
+.score-block {
+  text-align: center;
+}
+
+.score-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+
+.team-dot {
+  font-size: 11px;
+  color: #333333;
+}
+
+.score-number {
+  font-size: 26px;
+  font-weight: 900;
+  font-family: 'Courier New', monospace;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  transition: color 0.3s ease;
+}
+
+.score-number.kia { color: var(--color-kia); }
+.score-number.lg  { color: var(--color-lg); }
+
+.team-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.team-label.kia { color: var(--color-kia); }
+.team-label.lg  { color: var(--color-lg); }
+
+/* 직관 버튼 */
+.ghost-btn {
+  background: rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.12) !important;
+  border-radius: 5px;
+  padding: 6px 12px;
+  color: #1A1A1A;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.2s ease;
+}
+
+.ghost-btn:hover {
+  background: rgba(0,0,0,0.06);
+}
+
+/* ══════════════════════════════════════════════════════════
+   MAIN: 3단 그리드
+   원본: <main> in Home.tsx
+══════════════════════════════════════════════════════════ */
+.app-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 20px;
+  padding: 24px 40px;
+  overflow: hidden;
+  align-items: center;
+  justify-items: center;
+}
+
+/* ── 공통 위젯 스타일 ── */
+.widget {
+  background: rgba(255,255,255,0.28);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  height: fit-content;
+}
+
+.widget-left, .widget-right {
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* 중앙 위젯 */
+.widget-center {
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  width: 280px;
+  height: auto;
+}
+
+/* 위젯 타이틀 */
+.widget-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: #1A1A1A;
+  letter-spacing: 0.1em;
+}
+
+/* 통계 블록 */
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.stat-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: #1A1A1A;
+}
+
+.stat-value {
+  font-size: 42px;
+  font-weight: 900;
+  color: #FFFFFF;
+  line-height: 1;
+}
+
+.stat-unit {
+  font-size: 9px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.45);
+}
+
+/* ── 구역 게이지 ── */
+.zone-gauges {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.zone-gauge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zone-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #1A1A1A;
+  min-width: 40px;
+}
+
+.gauge-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.gauge-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.gauge-fill.kia { background: rgba(220,50,80,0.8); }
+.gauge-fill.lg  { background: rgba(50,120,200,0.8); }
+
+.gauge-pct {
+  font-size: 10px;
+  font-weight: 700;
+  color: #1A1A1A;
+  min-width: 30px;
+  text-align: right;
+}
+
+/* ══════════════════════════════════════════════════════════
+   FOOTER: LIVE 티커
+   원본: <footer> in Home.tsx
+══════════════════════════════════════════════════════════ */
+.app-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 40px;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255,255,255,0.1) !important;
+  font-size: 13px;
+  font-weight: 500;
+  color: #FFFFFF;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.live-badge {
+  font-size: 10px;
+  font-weight: 900;
+  color: #FF3333;
+  letter-spacing: 0.15em;
+  white-space: nowrap;
+  animation: blink 1s infinite;
+}
+
+.ai-icon {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.ticker-msg {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+/* ══════════════════════════════════════════════════════════
+   AI 챗봇 플로팅 버튼
+   원본: Fixed div in Home.tsx
+══════════════════════════════════════════════════════════ */
+.chatbot-float {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 50;
+}
+
+/* 말풍선 힌트 */
+.chatbot-hint {
+  position: absolute;
+  bottom: 80px;
+  right: 0;
+  background: rgba(0,0,0,0.8);
+  color: #FFFFFF;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  animation: fadeSlideIn 0.3s ease;
+}
+
+/* 챗봇 버튼 */
+.chatbot-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-lg);
+  border: none !important;
+  color: #FFFFFF;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(50,120,200,0.4);
+  transition: all 0.3s ease;
+}
+
+.chatbot-btn:hover {
+  box-shadow: 0 6px 24px rgba(50,120,200,0.6);
+  transform: scale(1.1);
+}
+
+/* ══════════════════════════════════════════════════════════
+   챗봇 모달
+   원본: ChatbotModal.tsx
+══════════════════════════════════════════════════════════ */
+.chatbot-modal {
+  position: fixed;
+  bottom: 80px;
+  right: 32px;
+  width: 300px;
+  height: 420px;
+  background: rgba(20,30,50,0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.2) !important;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  z-index: 300;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  overflow: hidden;
+}
+
+/* 채팅 헤더 */
+.chat-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0,0,0,0.15);
+  flex-shrink: 0;
+}
+
+.chat-title {
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.chat-close-btn {
+  background: transparent;
+  border: none !important;
+  color: rgba(255,255,255,0.5);
+  font-size: 16px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  padding: 0;
+}
+
+.chat-close-btn:hover {
+  color: rgba(255,255,255,0.8);
+}
+
+/* 메시지 영역 */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.msg-row {
+  display: flex;
+}
+
+.msg-row.user {
+  justify-content: flex-end;
+}
+
+.msg-row.ai {
+  justify-content: flex-start;
+}
+
+.msg-bubble {
+  max-width: 75%;
+  padding: 9px 13px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #FFFFFF;
+}
+
+.msg-bubble.user {
+  border-radius: 12px 12px 3px 12px;
+  background: rgba(100,150,255,0.75);
+}
+
+.msg-bubble.ai {
+  border-radius: 12px 12px 12px 3px;
+  background: rgba(255,255,255,0.1);
+}
+
+/* 입력 영역 */
+.chat-input-area {
+  padding: 10px 12px;
+  border-top: 1px solid rgba(255,255,255,0.1) !important;
+  display: flex;
+  gap: 6px;
+  background: rgba(0,0,0,0.1);
+  flex-shrink: 0;
+}
+
+.chat-input-area input {
+  flex: 1;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.2) !important;
+  border-radius: 6px;
+  padding: 7px 11px;
+  color: #FFFFFF;
+  font-size: 12px;
+  outline: none;
+  font-family: inherit;
+}
+
+.chat-input-area input::placeholder {
+  color: rgba(255,255,255,0.4);
+}
+
+.chat-send-btn {
+  background: rgba(100,150,255,0.75);
+  border: none !important;
+  border-radius: 6px;
+  padding: 7px 13px;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.2s ease;
+}
+
+.chat-send-btn:hover {
+  background: rgba(100,150,255,0.95);
+}
+
+/* ── 스크롤바 스타일 ── */
+.chat-messages::-webkit-scrollbar {
+  width: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 2px;
+}
+
+/* ── 키프레임 애니메이션 ── */
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.4; }
+}
+
+@keyframes fadeSlideIn {
+  0%   { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 반응형 ── */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 12px 16px;
+  }
+
+  .app-main {
+    grid-template-columns: 1fr;
+    padding: 12px 16px;
+    overflow-y: auto;
+    gap: 12px;
+  }
+
+  .widget-center {
+    width: 100%;
+  }
+
+  .scoreboard {
+    gap: 16px;
+  }
+
+  .logo {
+    font-size: 18px;
+  }
+
+  .ghost-btn {
+    display: none;
+  }
+
+  .chatbot-modal {
+    width: calc(100vw - 32px);
+    right: 16px;
+  }
+}
