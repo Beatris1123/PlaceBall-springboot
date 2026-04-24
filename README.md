@@ -1,103 +1,134 @@
 # PLACEBALL - Spring Boot
 
-> 원본 React/Node.js 프로젝트를 **Spring Boot Java**로 완전 변환한 야구 팬 응원 점령 대시보드
+> 원본 레포지토리 [PlaceBall-final](https://github.com/Beatris1123/PlaceBall-final)의 TypeScript/Node.js 기반 프로젝트를  
+> **Spring Boot 3.x + Gradle + Java 17** 로 코드 손실 없이 변환한 버전입니다.
 
 ---
 
-## 프로젝트 구조
+## 📋 프로젝트 구조
 
 ```
 placeballspring/
-├── pom.xml
-└── src/
-    └── main/
-        ├── java/com/placeball/app/
-        │   ├── PlaceBallApplication.java       ← 메인 진입점
-        │   ├── config/
-        │   │   └── WebSocketConfig.java         ← STOMP WebSocket 설정
-        │   ├── controller/
-        │   │   ├── HomeController.java           ← 페이지 라우팅 (/, /404)
-        │   │   ├── GameRestController.java       ← GET /api/gamestate
-        │   │   └── ChatbotController.java        ← POST /api/chat/send
-        │   ├── model/
-        │   │   ├── Zone.java                    ← 야구장 구역 모델
-        │   │   ├── TickerMessage.java            ← LIVE 티커 메시지
-        │   │   ├── GameState.java               ← 전체 게임 상태
-        │   │   └── ChatMessage.java             ← AI 챗봇 메시지
-        │   └── service/
-        │       ├── GameService.java             ← 2초 인터벌 점수/구역 업데이트
-        │       └── ChatbotService.java          ← AI 응답 생성
-        └── resources/
-            ├── application.properties
-            ├── templates/
-            │   ├── index.html                   ← 메인 페이지 (Thymeleaf)
-            │   └── not-found.html               ← 404 페이지
-            └── static/
-                ├── css/style.css                ← 전체 스타일 (글래스모피즘)
-                └── js/
-                    ├── stadium-map.js           ← Canvas 야구장 다이아몬드 맵
-                    └── app.js                   ← 앱 로직 (WebSocket + DOM)
+├── build.gradle                          # Gradle 빌드 설정
+├── settings.gradle
+├── gradlew / gradlew.bat
+├── src/
+│   ├── main/
+│   │   ├── java/com/placeballspring/placeballspring/
+│   │   │   ├── PlaceballspringApplication.java     # 진입점
+│   │   │   ├── config/
+│   │   │   │   ├── WebSocketConfig.java            # STOMP WebSocket 설정
+│   │   │   │   └── WebConfig.java                  # 정적 리소스 서빙
+│   │   │   ├── controller/
+│   │   │   │   ├── GameController.java             # GET /api/game/state, /ticker
+│   │   │   │   ├── ChatbotController.java          # GET /api/chat/welcome, POST /api/chat/send
+│   │   │   │   └── WebController.java              # SPA 라우팅 (index.html 서빙)
+│   │   │   ├── model/
+│   │   │   │   ├── Zone.java                       # 구역 모델
+│   │   │   │   ├── GameState.java                  # 게임 상태 모델
+│   │   │   │   ├── ChatMessage.java                # 챗봇 메시지 모델
+│   │   │   │   └── TickerMessage.java              # 티커 메시지 모델
+│   │   │   └── service/
+│   │   │       ├── GameService.java                # 게임 상태 관리 + WebSocket 브로드캐스트
+│   │   │       └── ChatbotService.java             # AI 챗봇 응답 생성
+│   │   └── resources/
+│   │       ├── application.properties
+│   │       └── static/                             # React 빌드 결과물 (vite build 후 자동 생성)
+│   └── test/
+│       └── java/...
+└── frontend/                             # React + TypeScript 소스 (원본 보존)
+    ├── src/
+    │   ├── pages/Home.tsx                # 메인 대시보드 (useGameState 훅 연동)
+    │   ├── components/
+    │   │   ├── ChatbotModal.tsx          # AI 챗봇 모달 (useChatbot 훅 연동)
+    │   │   ├── StadiumDiamondMap.tsx     # 야구장 Canvas 맵
+    │   │   └── StadiumSeatMap.tsx        # 관람석 Canvas 맵
+    │   └── hooks/
+    │       ├── useGameState.ts           # 게임 상태 WebSocket 연동 훅 (신규)
+    │       └── useChatbot.ts             # 챗봇 REST API 연동 훅 (신규)
+    ├── package.json
+    └── vite.config.ts                    # Spring Boot 통합 빌드 설정
 ```
 
 ---
 
-## 원본 → 변환 대응표
+## 🔄 원본 → Spring Boot 변환 매핑
 
-| 원본 (React/Node.js) | 변환 (Spring Boot Java) |
-|---|---|
-| `server/index.ts` (Express) | `PlaceBallApplication.java` + `HomeController.java` |
-| `pages/Home.tsx` (React) | `templates/index.html` + `js/app.js` |
-| `components/StadiumDiamondMap.tsx` | `js/stadium-map.js` |
-| `components/ChatbotModal.tsx` | `ChatbotController.java` + `ChatbotService.java` |
-| `useState(INITIAL_ZONES)` | `GameService.zones` (List<Zone>) |
-| `setInterval(2000ms)` 점수 업데이트 | `@Scheduled(fixedDelay=2000)` |
-| `setInterval(4000ms)` 티커 순환 | `@Scheduled(fixedDelay=4000)` |
-| WebSocket (없음, 폴링 방식) | Spring STOMP + SockJS WebSocket |
-| `interface Zone` (TypeScript) | `Zone.java` (Lombok) |
-| `interface Message` (TypeScript) | `ChatMessage.java` (Lombok) |
-| `AI_RESPONSES[random]` | `ChatbotService.generateAiResponse()` |
-| `index.css` (Tailwind) | `static/css/style.css` (Vanilla CSS) |
+| 원본 (TypeScript/Node.js)              | Spring Boot 전환                          |
+|----------------------------------------|-------------------------------------------|
+| `server/index.ts` (Express 서버)       | `PlaceballspringApplication.java`         |
+| `app.use(express.static(...))`         | `WebConfig.java` + `application.properties` |
+| `app.get("*", res.sendFile(...))`      | `WebController.java` (SPA 라우팅)         |
+| `Home.tsx` useState + setInterval(2s) | `GameService.java` @Scheduled + WebSocket |
+| `Home.tsx` ticker setInterval(4s)     | `GameService.java` @Scheduled + WebSocket |
+| `ChatbotModal.tsx` setTimeout(600ms)  | `ChatbotService.java` + REST API          |
+| TypeScript interface `Zone`            | `Zone.java`                               |
+| TypeScript interface `Message`         | `ChatMessage.java`                        |
+| TICKER_MESSAGES 상수                   | `GameService.java` tickerMessages List    |
+| AI_RESPONSES 상수                      | `ChatbotService.java` AI_RESPONSES List   |
 
 ---
 
-## 실행 방법
+## 🚀 실행 방법
 
-### 사전 조건
-- Java 17 이상
-- Maven 3.6 이상
-
-### 실행
+### 1. 프론트엔드 빌드
 
 ```bash
-# 의존성 다운로드 & 빌드
-mvn clean install
-
-# 실행
-mvn spring-boot:run
+cd frontend
+npm install    # 또는 pnpm install
+npm run build  # src/main/resources/static/ 으로 자동 빌드
 ```
 
-접속: http://localhost:8080
+### 2. Spring Boot 실행
+
+```bash
+# 프로젝트 루트에서
+./gradlew bootRun
+
+# 또는 JAR 빌드 후 실행
+./gradlew build
+java -jar build/libs/placeballspring-0.0.1-SNAPSHOT.jar
+```
+
+### 3. 접속
+
+```
+http://localhost:8080
+```
 
 ---
 
-## API 엔드포인트
+## 📡 API 엔드포인트
 
-| Method | URL | 설명 |
-|---|---|---|
-| `GET` | `/` | 메인 대시보드 페이지 |
-| `GET` | `/404` | 404 페이지 |
-| `GET` | `/api/gamestate` | 현재 게임 상태 JSON |
-| `GET` | `/api/chat/welcome` | AI 초기 인사 메시지 |
-| `POST` | `/api/chat/send` | AI 채팅 메시지 전송 |
-| `WS` | `/ws` | STOMP WebSocket (실시간 업데이트) |
+### REST API
+
+| Method | Endpoint            | 설명                          |
+|--------|---------------------|-------------------------------|
+| GET    | `/api/game/state`   | 현재 게임 상태 (zones, scores) |
+| GET    | `/api/game/ticker`  | 현재 LIVE 티커 메시지          |
+| GET    | `/api/chat/welcome` | AI 챗봇 환영 메시지            |
+| POST   | `/api/chat/send`    | 사용자 메시지 → AI 응답        |
+
+### WebSocket (STOMP)
+
+| 채널                  | 방향               | 설명                     |
+|-----------------------|--------------------|--------------------------|
+| `/topic/gamestate`    | 서버 → 클라이언트  | 2초마다 게임 상태 업데이트 |
+| `/topic/ticker`       | 서버 → 클라이언트  | 4초마다 티커 메시지 업데이트 |
+| `/topic/chat`         | 서버 → 클라이언트  | AI 챗봇 응답 브로드캐스트  |
 
 ---
 
-## 기술 스택
+## 🛠 기술 스택
 
-- **Backend**: Spring Boot 3.2.5, Java 17
-- **Template**: Thymeleaf
-- **WebSocket**: Spring STOMP + SockJS
-- **Frontend**: Vanilla JS + Canvas API
-- **Style**: Vanilla CSS (글래스모피즘)
-- **Build**: Maven
+**백엔드**
+- Java 17
+- Spring Boot 3.2.5
+- Spring WebSocket (STOMP)
+- Gradle 8.7
+
+**프론트엔드** (원본 유지)
+- React 19 + TypeScript
+- Vite 7
+- Tailwind CSS 4
+- Canvas API (StadiumDiamondMap, StadiumSeatMap)
