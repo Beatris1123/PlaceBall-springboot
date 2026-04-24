@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>PLACEBALL - AI 야구 구역 점령 대시보드</title>
+    <meta name="description" content="KIA vs LG 야구 팬 응원 구역 점령 실시간 대시보드 - Spring Boot 백엔드 연동" />
+    <style>
+      /* 로딩 스피너 - React 번들 로드 전 표시 */
+      body {
+        margin: 0;
+        background: #0f1117;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+      }
+      #root:empty::after {
+        content: 'PLACEBALL 로딩 중...';
+        color: rgba(255,255,255,0.4);
+        font-size: 14px;
+        letter-spacing: 0.1em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!--
+      이 index.html은 Spring Boot 정적 리소스로 서빙됩니다.
+      React(Vite) 빌드 후 frontend/npm run build 시
+      src/main/resources/static/ 에 빌드 결과물이 생성됩니다.
+
+      개발 시:
+        1. ./gradlew bootRun   (Spring Boot 백엔드, :8080)
+        2. cd frontend && npm run dev  (Vite dev server, :5173)
+
+      프로덕션 빌드:
+        1. cd frontend && npm run build
+        2. ./gradlew bootRun
+        → http://localhost:8080
+    -->
+    <script type="module" src="/assets/main.js"></script>
+  </body>
+</html>

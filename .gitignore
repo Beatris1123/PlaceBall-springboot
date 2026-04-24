@@ -58,8 +58,6 @@ frontend/.manus-logs/
 .env.local
 .env.*.local
 
-# ── 정적 리소스 (빌드 시 자동 생성) ──
+# ── 정적 리소스 (Vite 빌드 시 자동 생성되는 파일만 ignore) ──
+# index.html 은 기본 SPA 진입점으로 항상 추적
 src/main/resources/static/assets/
-src/main/resources/static/*.js
-src/main/resources/static/*.css
-src/main/resources/static/index.html
