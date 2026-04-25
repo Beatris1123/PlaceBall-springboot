@@ -5,31 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PLACEBALL — AI 전략 사령관</title>
     <meta name="description" content="PLACEBALL AI 전략 챗봇 · ChatbotController Spring Boot" />
-
-    <!--
-        WebController.java : GET /chat → forward:/chat.html
-        WebConfig.java     : /css/**  → classpath:/static/css/
-    -->
     <link rel="stylesheet" href="/css/common.css" />
-
     <style>
-        /* ── chat.html 전용 스타일 ── */
-
-        /* 전체 레이아웃: 사이드바 + 챗봇 메인 */
         .chat-layout {
             display: grid;
             grid-template-columns: 240px 1fr;
             gap: 20px;
             height: 100%;
         }
-
-        /* ── 사이드바 ── */
         .chat-sidebar {
             display: flex;
             flex-direction: column;
             gap: 16px;
         }
-
         .sidebar-section__title {
             font-size: 10px;
             font-weight: 700;
@@ -38,14 +26,11 @@
             text-transform: uppercase;
             margin-bottom: 8px;
         }
-
-        /* 실시간 점수 미니 카드 */
         .mini-score {
             display: flex;
             flex-direction: column;
             gap: 8px;
         }
-
         .mini-score__row {
             display: flex;
             align-items: center;
@@ -56,26 +41,21 @@
             font-weight: 800;
             font-family: 'Courier New', monospace;
         }
-
         .mini-score__row--kia {
             background: rgba(220,50,80,0.15);
             border: 1px solid rgba(220,50,80,0.30);
             color: #DC3250;
         }
-
         .mini-score__row--lg {
             background: rgba(50,120,200,0.15);
             border: 1px solid rgba(50,120,200,0.30);
             color: #3278C8;
         }
-
-        /* 빠른 질문 버튼 목록 */
         .quick-btns {
             display: flex;
             flex-direction: column;
             gap: 6px;
         }
-
         .quick-btn {
             background: rgba(255,255,255,0.07);
             border: 1px solid rgba(255,255,255,0.14);
@@ -87,21 +67,16 @@
             font-family: var(--font);
             transition: background 0.2s, color 0.2s;
         }
-
         .quick-btn:hover {
             background: rgba(255,255,255,0.13);
             color: var(--white);
         }
-
-        /* ── 챗봇 메인 영역 ── */
         .chat-main {
             display: flex;
             flex-direction: column;
             height: 100%;
             min-height: 0;
         }
-
-        /* 메시지 스크롤 영역 */
         .chat-messages-full {
             flex: 1;
             overflow-y: auto;
@@ -110,26 +85,19 @@
             flex-direction: column;
             gap: 12px;
             scroll-behavior: smooth;
-            border-radius: var(--radius) var(--radius) 0 0;
         }
-
         .chat-messages-full::-webkit-scrollbar { width: 4px; }
         .chat-messages-full::-webkit-scrollbar-track { background: transparent; }
         .chat-messages-full::-webkit-scrollbar-thumb {
             background: rgba(255,255,255,0.18);
             border-radius: 4px;
         }
-
-        /* 메시지 버블 (common.css .msg 확장) */
         .chat-messages-full .msg { max-width: 70%; }
-
         .chat-messages-full .msg__bubble {
             padding: 11px 15px;
             font-size: 13px;
             line-height: 1.6;
         }
-
-        /* 입력 영역 */
         .chat-input-area {
             display: flex;
             gap: 8px;
@@ -139,7 +107,6 @@
             border-radius: 0 0 var(--radius) var(--radius);
             flex-shrink: 0;
         }
-
         .chat-input-full {
             flex: 1;
             background: rgba(255,255,255,0.07);
@@ -152,10 +119,8 @@
             outline: none;
             transition: border-color 0.2s;
         }
-
         .chat-input-full:focus { border-color: rgba(100,150,255,0.55); }
         .chat-input-full::placeholder { color: rgba(255,255,255,0.28); }
-
         .chat-send-btn {
             background: rgba(50,120,200,0.80);
             border: none;
@@ -167,28 +132,18 @@
             font-family: var(--font);
             transition: background 0.2s;
         }
-
         .chat-send-btn:hover { background: rgba(50,120,200,1); }
-
         @media (max-width: 780px) {
-            .chat-layout {
-                grid-template-columns: 1fr;
-                grid-template-rows: auto 1fr;
-            }
+            .chat-layout { grid-template-columns: 1fr; }
             .chat-sidebar { flex-direction: row; flex-wrap: wrap; }
         }
     </style>
-
-    <!-- SockJS + STOMP -->
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 </head>
 <body>
 
-    <!-- =====================================================
-         GLOBAL NAV
-         WebController.java: GET /chat → forward:/chat.html
-         ===================================================== -->
+    <!-- GLOBAL NAV — WebController: GET /chat → forward:/chat.html -->
     <nav class="nav">
         <span class="nav__logo">PLACEBALL</span>
         <div class="nav__links">
@@ -196,31 +151,24 @@
             <a href="/map" class="nav__link">🗺️ 구역 지도</a>
             <a href="/chat" class="nav__link nav__link--active">🤖 AI 전략</a>
         </div>
-        <!-- 실시간 점수 배지 (chat-page.js → /topic/gamestate) -->
         <div class="nav__badges">
             <span class="nav__badge nav__badge--kia">🔴 KIA <span id="nav-kia">3,171</span></span>
             <span class="nav__badge nav__badge--lg">🔵 LG <span id="nav-lg">2,862</span></span>
         </div>
     </nav>
 
-    <!-- =====================================================
-         PAGE
-         ===================================================== -->
     <div class="page">
         <div class="page__header">
             <h1 class="page__title">🤖 AI 전략 사령관</h1>
             <p class="page__subtitle">
                 ChatbotController — GET /api/chat/welcome · POST /api/chat/send
-                · ChatbotService AI_RESPONSES 6종 랜덤 응답
             </p>
         </div>
 
         <div class="page__body">
             <div class="chat-layout">
 
-                <!-- ─────────────────────────────────────────
-                     사이드바: 실시간 점수 + 빠른 질문
-                     ───────────────────────────────────────── -->
+                <!-- 사이드바: 실시간 점수 + 빠른 질문 -->
                 <div class="chat-sidebar">
 
                     <!-- 실시간 점수 (chat-page.js → /topic/gamestate 2s) -->
@@ -236,42 +184,27 @@
                         </div>
                     </div>
 
-                    <!-- 빠른 질문 버튼 (chat-page.js 에서 이벤트 바인딩) -->
+                    <!-- 빠른 질문 버튼 (chat-page.js 이벤트 바인딩) -->
                     <div class="card card--dark">
                         <div class="sidebar-section__title">빠른 질문</div>
                         <div class="quick-btns">
-                            <button class="quick-btn" data-q="현재 KIA 점령 상황은 어때?">
-                                🔴 KIA 점령 상황은?
-                            </button>
-                            <button class="quick-btn" data-q="LG의 역습 전략을 알려줘">
-                                🔵 LG 역습 전략은?
-                            </button>
-                            <button class="quick-btn" data-q="가장 집중해야 할 구역은 어디야?">
-                                🎯 집중 구역 추천
-                            </button>
-                            <button class="quick-btn" data-q="응원 화력을 높이려면 어떻게 해야 해?">
-                                🔥 응원 화력 높이기
-                            </button>
-                            <button class="quick-btn" data-q="퀴즈 정답률이 구역 점수에 영향이 있어?">
-                                ❓ 퀴즈와 점수 관계
-                            </button>
+                            <button class="quick-btn" data-q="현재 KIA 점령 상황은 어때?">🔴 KIA 점령 상황은?</button>
+                            <button class="quick-btn" data-q="LG의 역습 전략을 알려줘">🔵 LG 역습 전략은?</button>
+                            <button class="quick-btn" data-q="가장 집중해야 할 구역은 어디야?">🎯 집중 구역 추천</button>
+                            <button class="quick-btn" data-q="응원 화력을 높이려면 어떻게 해야 해?">🔥 응원 화력 높이기</button>
+                            <button class="quick-btn" data-q="퀴즈 정답률이 구역 점수에 영향이 있어?">❓ 퀴즈와 점수 관계</button>
                         </div>
                     </div>
 
                 </div>
 
-                <!-- ─────────────────────────────────────────
-                     챗봇 메인: 메시지 + 입력창
+                <!-- 챗봇 메인 영역
                      ChatbotController:
                        GET  /api/chat/welcome → 환영 메시지
-                       POST /api/chat/send    → AI ChatMessage 응답
-                     ChatMessage.java: { id, sender, text, timestamp }
-                     ───────────────────────────────────────── -->
+                       POST /api/chat/send    → AI ChatMessage
+                     ChatMessage.java: { id, sender("ai"|"user"), text, timestamp } -->
                 <div class="card card--dark chat-main">
-                    <!-- 메시지 스크롤 영역 (chat-page.js 가 동적 생성) -->
                     <div class="chat-messages-full" id="chat-messages"></div>
-
-                    <!-- 입력 영역 -->
                     <div class="chat-input-area">
                         <input
                             type="text"
@@ -288,21 +221,19 @@
         </div>
     </div>
 
-    <!-- =====================================================
-         FOOTER — LIVE 티커 (GameService @Scheduled 4s)
-         ===================================================== -->
+    <!-- FOOTER — LIVE 티커 (GameService @Scheduled 4s) -->
     <footer class="footer">
         <span class="footer__live">LIVE</span>
         <span class="footer__robot">🤖</span>
         <span class="footer__msg" id="ticker-msg">KIA 팬들의 응원 화력이 급증 중입니다!</span>
     </footer>
 
-    <!-- =====================================================
-         SCRIPTS — chat.html 전용 선별 로딩
-           1. api.js        → REST (GET /api/chat/welcome, POST /api/chat/send)
-           2. websocket.js  → STOMP (/topic/gamestate 점수, /topic/ticker 티커)
-           3. chat-page.js  → 풀스크린 챗봇 + 빠른 질문 + 실시간 점수
-         ===================================================== -->
+    <!--
+        SCRIPTS — chat.html 전용 선별 로딩
+          1. api.js       → REST (GET /api/chat/welcome, POST /api/chat/send)
+          2. websocket.js → STOMP (/topic/gamestate, /topic/ticker)
+          3. chat-page.js → 풀스크린 챗봇 + 빠른 질문 + 실시간 점수
+    -->
     <script src="/js/api.js"></script>
     <script src="/js/websocket.js"></script>
     <script src="/js/chat-page.js"></script>
