@@ -1,38 +1,60 @@
 package com.placeballspring.placeballspring.controller;
 
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 
 /**
- * WebController - SPA(Single Page Application) 라우팅 컨트롤러
- * 
- * 원본 Express 서버 (server/index.ts):
- *  app.get("*", (_req, res) => {
- *    res.sendFile(path.join(staticPath, "index.html"));
- *  });
- * 
- * React Router(wouter) 기반 클라이언트 측 라우팅을 지원하기 위해
- * 모든 알 수 없는 경로에서 index.html을 반환합니다.
- * 
- * 지원 경로:
- *  /        → Home.tsx
- *  /404     → NotFound.tsx
- *  그 외    → NotFound.tsx (wouter fallback)
+ * WebController — MPA(Multi-Page Application) URL 매핑
+ *
+ * SPA forward-everything 방식에서 MPA 방식으로 전환.
+ * 각 경로를 static/ 폴더의 개별 HTML 파일로 forward 합니다.
+ *
+ * URL 구조:
+ *   GET /        → forward:/index.html  (대시보드 — 실시간 점수 + 야구장 맵 + 챗봇 FAB)
+ *   GET /map     → forward:/map.html    (구역 지도 — Zone 테이블 + 캔버스)
+ *   GET /chat    → forward:/chat.html   (AI 전략 챗봇 — 풀스크린)
+ *   GET /404     → forward:/404.html    (에러 페이지)
+ *
+ * 정적 파일(/css/*, /js/*, *.html 직접 접근)은
+ * Spring Boot 기본 정적 서빙(classpath:/static/) + WebConfig.java 가 처리합니다.
+ *
+ * REST API (/api/**) 및 WebSocket (/ws) 은 이 컨트롤러가 가로채지 않습니다.
  */
 @Controller
 public class WebController {
 
     /**
-     * SPA 진입점 - index.html 반환
-     * /api/** 및 /static/** 를 제외한 모든 경로 처리
+     * GET /  →  대시보드
+     * 사용 JS: api.js, websocket.js, stadium-map.js, chatbot.js, app.js
      */
-    @RequestMapping(value = {
-        "/",
-        "/404",
-        "/{path:[^\\.]*}",
-        "/{path:[^\\.]*}/{subpath:[^\\.]*}"
-    })
-    public String forward() {
+    @GetMapping("/")
+    public String dashboard() {
         return "forward:/index.html";
+    }
+
+    /**
+     * GET /map  →  야구장 구역 지도 페이지
+     * 사용 JS: api.js, websocket.js, stadium-map.js, map-page.js
+     */
+    @GetMapping("/map")
+    public String mapPage() {
+        return "forward:/map.html";
+    }
+
+    /**
+     * GET /chat  →  AI 전략 챗봇 풀스크린 페이지
+     * 사용 JS: api.js, websocket.js, chat-page.js
+     */
+    @GetMapping("/chat")
+    public String chatPage() {
+        return "forward:/chat.html";
+    }
+
+    /**
+     * GET /404  →  404 에러 페이지
+     */
+    @GetMapping("/404")
+    public String notFound() {
+        return "forward:/404.html";
     }
 }

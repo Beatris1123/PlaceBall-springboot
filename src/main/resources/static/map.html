@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PLACEBALL — 구역 지도</title>
+    <meta name="description" content="야구장 구역 점령 현황 지도 · KIA vs LG 실시간" />
+
+    <!--
+        WebController.java : GET /map → forward:/map.html
+        WebConfig.java     : /css/**  → classpath:/static/css/
+    -->
+    <link rel="stylesheet" href="/css/common.css" />
+
+    <style>
+        /* ── map.html 전용 스타일 ── */
+        .map-layout {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            gap: 20px;
+            height: 100%;
+            align-items: start;
+        }
+
+        /* 캔버스 카드 */
+        .map-canvas-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .map-canvas-card__title {
+            font-size: 12px;
+            font-weight: 700;
+            color: rgba(255,255,255,0.55);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        #stadium-canvas {
+            display: block;
+            image-rendering: crisp-edges;
+        }
+
+        /* 팀 범례 */
+        .map-legend {
+            display: flex;
+            gap: 14px;
+        }
+
+        .legend-dot {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .legend-dot__color {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .legend-dot--kia .legend-dot__color { background: #DC3250; }
+        .legend-dot--lg  .legend-dot__color { background: #3278C8; }
+
+        /* 스코어 미니 배지 */
+        .map-scores {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .map-score-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+        }
+
+        .map-score-row--kia {
+            background: rgba(220,50,80,0.15);
+            border: 1px solid rgba(220,50,80,0.30);
+            color: #DC3250;
+        }
+
+        .map-score-row--lg {
+            background: rgba(50,120,200,0.15);
+            border: 1px solid rgba(50,120,200,0.30);
+            color: #3278C8;
+        }
+
+        /* Zone 상세 테이블 */
+        .zone-table-wrap {
+            overflow-x: auto;
+        }
+
+        .zone-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .zone-table thead th {
+            padding: 10px 14px;
+            text-align: left;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            color: rgba(255,255,255,0.45);
+            border-bottom: 1px solid rgba(255,255,255,0.10);
+            white-space: nowrap;
+        }
+
+        .zone-table tbody tr {
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            transition: background 0.15s;
+        }
+
+        .zone-table tbody tr:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .zone-table td {
+            padding: 12px 14px;
+            vertical-align: middle;
+        }
+
+        /* Zone 명칭 */
+        .zt__zone {
+            font-weight: 700;
+            white-space: nowrap;
+            color: var(--white);
+        }
+
+        /* Zone 설명 */
+        .zt__desc {
+            color: rgba(255,255,255,0.50);
+            font-size: 12px;
+        }
+
+        /* 팀 소유 */
+        .zt__owner {
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .zone-row--kia .zt__owner { color: #DC3250; }
+        .zone-row--lg  .zt__owner { color: #3278C8; }
+
+        /* 점령률 바 */
+        .zt__rate {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 160px;
+        }
+
+        .zt__bar-wrap {
+            flex: 1;
+            height: 6px;
+            background: rgba(255,255,255,0.12);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .zt__bar {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        .zt__pct {
+            font-size: 12px;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            color: rgba(255,255,255,0.80);
+            min-width: 36px;
+            text-align: right;
+        }
+
+        @media (max-width: 780px) {
+            .map-layout {
+                grid-template-columns: 1fr;
+            }
+            .map-canvas-card {
+                align-items: center;
+            }
+        }
+    </style>
+
+    <!-- SockJS + STOMP (websocket.js 사용) -->
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+</head>
+<body>
+
+    <!-- =====================================================
+         GLOBAL NAV
+         WebController.java: GET /map → forward:/map.html
+         ===================================================== -->
+    <nav class="nav">
+        <span class="nav__logo">PLACEBALL</span>
+        <div class="nav__links">
+            <a href="/" class="nav__link">🏟️ 대시보드</a>
+            <a href="/map" class="nav__link nav__link--active">🗺️ 구역 지도</a>
+            <a href="/chat" class="nav__link">🤖 AI 전략</a>
+        </div>
+        <!-- 실시간 점수 (PlaceballWS /topic/gamestate → map-page.js) -->
+        <div class="nav__badges">
+            <span class="nav__badge nav__badge--kia">🔴 KIA <span id="nav-kia">3,171</span></span>
+            <span class="nav__badge nav__badge--lg">🔵 LG <span id="nav-lg">2,862</span></span>
+        </div>
+    </nav>
+
+    <!-- =====================================================
+         PAGE HEADER
+         ===================================================== -->
+    <div class="page">
+        <div class="page__header">
+            <h1 class="page__title">🗺️ 구역 점령 지도</h1>
+            <p class="page__subtitle">GameService @Scheduled(2s) → /topic/gamestate — 2초마다 실시간 갱신</p>
+        </div>
+
+        <!-- =====================================================
+             PAGE BODY — 좌: 캔버스 / 우: Zone 테이블
+             ===================================================== -->
+        <div class="page__body">
+            <div class="map-layout">
+
+                <!-- 좌측: 야구장 캔버스 + 점수 -->
+                <div class="card card--dark map-canvas-card">
+                    <div class="map-canvas-card__title">야구장 다이아몬드</div>
+
+                    <!--
+                        stadium-map.js → StadiumMap.init(zones) / .update(zones)
+                        Zone id 0~5, owner, occupationRate → 글로우 원 렌더링
+                    -->
+                    <canvas id="stadium-canvas" width="220" height="220"></canvas>
+
+                    <!-- 팀 범례 -->
+                    <div class="map-legend">
+                        <div class="legend-dot legend-dot--kia">
+                            <div class="legend-dot__color"></div> KIA
+                        </div>
+                        <div class="legend-dot legend-dot--lg">
+                            <div class="legend-dot__color"></div> LG
+                        </div>
+                    </div>
+
+                    <!-- 스코어 미니 배지 (map-page.js 가 갱신) -->
+                    <div class="map-scores">
+                        <div class="map-score-row map-score-row--kia">
+                            🔴 KIA TIGERS
+                            <span id="score-kia">3,171</span>
+                        </div>
+                        <div class="map-score-row map-score-row--lg">
+                            🔵 LG TWINS
+                            <span id="score-lg">2,862</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 우측: Zone 상세 테이블 -->
+                <div class="card card--dark zone-table-wrap">
+                    <!--
+                        map-page.js: _renderZoneTable(zones) → tbody 동적 생성
+                        Zone.java: id(0~5), owner, occupationRate
+                        /topic/gamestate → _updateZoneTable(zones) → 실시간 바 업데이트
+                    -->
+                    <table class="zone-table">
+                        <thead>
+                            <tr>
+                                <th>구역명</th>
+                                <th>설명</th>
+                                <th>점유 팀</th>
+                                <th>점령률</th>
+                            </tr>
+                        </thead>
+                        <tbody id="zone-tbody">
+                            <!-- map-page.js 가 동적으로 채움 -->
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================
+         FOOTER — LIVE 티커 (GameService @Scheduled 4s)
+         ===================================================== -->
+    <footer class="footer">
+        <span class="footer__live">LIVE</span>
+        <span class="footer__robot">🤖</span>
+        <span class="footer__msg" id="ticker-msg">KIA 팬들의 응원 화력이 급증 중입니다!</span>
+    </footer>
+
+    <!-- =====================================================
+         SCRIPTS — map.html 전용 선별 로딩
+           1. api.js         → REST (GET /api/game/state, /ticker)
+           2. websocket.js   → STOMP (/topic/gamestate, /topic/ticker)
+           3. stadium-map.js → Canvas 렌더링
+           4. map-page.js    → Zone 테이블 + 조립
+         ===================================================== -->
+    <script src="/js/api.js"></script>
+    <script src="/js/websocket.js"></script>
+    <script src="/js/stadium-map.js"></script>
+    <script src="/js/map-page.js"></script>
+</body>
+</html>
